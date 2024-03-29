@@ -46,7 +46,7 @@ void ofApp::update(){
 void ofApp::draw(){
 	cam.begin();
 	ofPushMatrix();
-	ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
+	//ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
 	mesh.drawVertices();
 	
 	
