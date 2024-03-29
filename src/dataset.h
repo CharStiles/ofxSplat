@@ -44,6 +44,7 @@ namespace dataset {
 
     class Dataset {
     public:
+        Dataset() : buffer_() {}
         Dataset(SplatBuffer&& buffer) : buffer_(buffer) {}
         const SplatBuffer& buffer() const { return buffer_; }
         void sort(const ofMatrix4x4& P, SortResult* out) const;

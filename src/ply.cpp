@@ -92,10 +92,6 @@ PlyHeader::PlyHeader(const std::string& filename) {
 
     // Extract header
     std::string ply_header = ply_data.substr(0, header_end_idx);
-   
-    headerLen = sizeof(ply_header);
-
-    
 
     if (ply_header.rfind("ply\nformat binary_little_endian 1.0", 0) != 0)
         ofLogFatalError() << "unsupported PLY format";

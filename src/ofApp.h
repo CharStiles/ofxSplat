@@ -26,4 +26,6 @@ class ofApp : public ofBaseApp{
 		ofShader shader;
 		size_t len;
 		ofEasyCam cam;
+	//private:
+		dataset::Dataset ddset;
 };
