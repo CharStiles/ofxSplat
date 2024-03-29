@@ -45,6 +45,7 @@ namespace ply {
         size_t row_length;
         std::vector<size_t> offsets;
         char* address; 
+        size_t headerLen;
     };
 
     template <typename T>

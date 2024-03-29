@@ -34,18 +34,7 @@ size_t ply_type_size(PlyType t) {
 
 PlyHeader::PlyHeader(const std::string& filename) {
     //// Find header
-    //char* const file_begin = reinterpret_cast<char*>(file.address());
-    //header_end_idx = [&]() {
-    //    constexpr std::string_view END_HEADER_STR = "end_header\n";
-    //    const auto length = file.maximum_extent().value();
-    //    for (char* p = file_begin;
-    //         (p = (char*)std::memchr(p, END_HEADER_STR.at(0), file_begin + length - p));
-    //         p++) {
-    //        if (END_HEADER_STR.compare(0, END_HEADER_STR.size(), p, END_HEADER_STR.size()) == 0)
-    //            return p - file_begin + END_HEADER_STR.size();
-    //    }
-    //    ofLogFatalError() << "could not parse PLY file";
-    //}();
+
 
     //// Extract header
     //const std::string ply_header(file_begin, file_begin+header_end_idx);
@@ -78,8 +67,24 @@ PlyHeader::PlyHeader(const std::string& filename) {
     std::string ply_data(file_contents, file_contents + file_size);
 
     address = file_contents;
-    // Find header end index
-    header_end_idx = ply_data.find("end_header\n");
+
+
+    char* const file_begin = reinterpret_cast<char*>(address);
+    header_end_idx = [&]() {
+        constexpr std::string_view END_HEADER_STR = "end_header\n";
+        const auto length = file_size;
+        for (char* p = file_begin;
+            (p = (char*)std::memchr(p, END_HEADER_STR.at(0), file_begin + length - p));
+            p++) {
+            if (END_HEADER_STR.compare(0, END_HEADER_STR.size(), p, END_HEADER_STR.size()) == 0)
+                return p - file_begin + END_HEADER_STR.size();
+        }
+        ofLogFatalError() << "could not parse PLY file";
+    }();
+
+    ofLog(OF_LOG_NOTICE, "address:: " + ofToString(address));
+
+        ofLog(OF_LOG_NOTICE, "end idx: " + ofToString(header_end_idx));
     if (header_end_idx == std::string::npos) {
         ofLogFatalError("PlyHeader") << "Could not find end of header in the PLY file";
         return;
@@ -87,7 +92,10 @@ PlyHeader::PlyHeader(const std::string& filename) {
 
     // Extract header
     std::string ply_header = ply_data.substr(0, header_end_idx);
+   
+    headerLen = sizeof(ply_header);
 
+    
 
     if (ply_header.rfind("ply\nformat binary_little_endian 1.0", 0) != 0)
         ofLogFatalError() << "unsupported PLY format";

@@ -49,7 +49,10 @@ xcuserdata
 *.aps
 ipch/
 .vs/*
-obj/*
+*/obj/*
+obj
+*.eve
+
 # Eclipse
 .metadata
 local.properties
