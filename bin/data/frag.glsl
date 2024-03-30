@@ -7,6 +7,8 @@
 // void main(){
 // 	outColor = color;
 // }
+
+
 // Adapted from https://github.com/antimatter15/splat
 #version 430
 precision mediump float;
@@ -21,4 +23,4 @@ void main () {
   float B = exp(A) * vColor.a;
   outColor = vec4(B * vColor.rgb, B);
 }
-)
+

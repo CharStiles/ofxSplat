@@ -2,7 +2,7 @@
 
 #include "ofMain.h"
 
-#include "dataset.h"
+#include "ply.h"
 
 class ofApp : public ofBaseApp{
 
@@ -27,5 +27,5 @@ class ofApp : public ofBaseApp{
 		size_t len;
 		ofEasyCam cam;
 	//private:
-		dataset::Dataset ddset;
+		//dataset::Dataset ddset;
 };
