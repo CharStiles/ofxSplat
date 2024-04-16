@@ -15,6 +15,7 @@ PlyType ply_type_from_string(const std::string& t) {
     if (t == "ushort") return PlyType::UShort;
     if (t == "char") return PlyType::Char;
     if (t == "uchar") return PlyType::UChar;
+    return PlyType::UChar;
     //LOG_FATAL("invalid type: %s", t.c_str());
 }
 
@@ -71,7 +72,8 @@ PlyHeader::PlyHeader(const std::string& filename) {
 
     char* const file_begin = reinterpret_cast<char*>(address);
     header_end_idx = [&]() {
-        constexpr std::string_view END_HEADER_STR = "end_header\n";
+        unsigned long z = 0;
+        std::string_view END_HEADER_STR = "end_header\n";
         const auto length = file_size;
         for (char* p = file_begin;
             (p = (char*)std::memchr(p, END_HEADER_STR.at(0), file_begin + length - p));
@@ -80,6 +82,7 @@ PlyHeader::PlyHeader(const std::string& filename) {
                 return p - file_begin + END_HEADER_STR.size();
         }
         ofLogFatalError() << "could not parse PLY file";
+        return z;
     }();
 
     ofLog(OF_LOG_NOTICE, "address:: " + ofToString(address));

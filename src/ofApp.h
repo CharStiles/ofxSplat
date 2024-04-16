@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ofMain.h"
-
 #include "ply.h"
 
 class ofApp : public ofBaseApp{
@@ -22,10 +21,17 @@ class ofApp : public ofBaseApp{
 		void windowResized(int w, int h);
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
-		ofMesh mesh;
+		ofVboMesh mesh;
 		ofShader shader;
 		size_t len;
 		ofEasyCam cam;
+        ofTexture texture;
+        
+    
+    
+    
+    
+    
 	//private:
 		//dataset::Dataset ddset;
 };

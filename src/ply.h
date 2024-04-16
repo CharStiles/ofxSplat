@@ -83,6 +83,7 @@ namespace ply {
             if (it == header_.props.end())
                 ofLogFatalError() << "not exist:" << prop_name.c_str();
             const size_t idx = std::distance(header_.props.begin(), it);
+            
             if (sizeof(T) != ply_type_size(header_.props.at(idx).type))
                 ofLogFatalError() << "invalid accessor type for property:" <<prop_name.c_str();
             return PlyAccessor<T>(ply_body_, header_, idx);

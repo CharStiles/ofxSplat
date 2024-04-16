@@ -1,20 +1,73 @@
 #include "ofApp.h"
 #include "ply.h"
+#include <cstdint> // For uint32_t and uint16_t
+#include <cstring> // For memcpy
+
+
+void convertMatrixTo1DArray(const ofMatrix4x4& matrix, float array[16]) {
+    int index = 0;
+    for (int row = 0; row < 4; ++row) {
+        for (int col = 0; col < 4; ++col) {
+            // Assuming the internal storage is _mat[row][col],
+            // adjust if the actual storage differs
+            array[index++] = matrix._mat[row][col];
+        }
+    }
+}
+
+// Utility function to convert quaternion to rotation matrix
+glm::mat3 quaternionToMatrix(const glm::quat& q) {
+    // Construct a 3x3 rotation matrix from the quaternion
+    glm::mat3 matrix;
+    float qx, qy, qz, qw;
+    qx = q.x;
+    qy = q.y;
+    qz = q.z;
+    qw = q.w;
+
+    matrix[0][0] = 1 - 2 * qy * qy - 2 * qz * qz;
+    matrix[0][1] = 2 * qx * qy - 2 * qz * qw;
+    matrix[0][2] = 2 * qx * qz + 2 * qy * qw;
+
+    matrix[1][0] = 2 * qx * qy + 2 * qz * qw;
+    matrix[1][1] = 1 - 2 * qx * qx - 2 * qz * qz;
+    matrix[1][2] = 2 * qy * qz - 2 * qx * qw;
+
+    matrix[2][0] = 2 * qx * qz - 2 * qy * qw;
+    matrix[2][1] = 2 * qy * qz + 2 * qx * qw;
+    matrix[2][2] = 1 - 2 * qx * qx - 2 * qy * qy;
+
+    return matrix;
+}
+
+glm::mat3 scaleRotationMatrix(const glm::mat3& rotationMatrix, const glm::vec3& scale) {
+    glm::mat3 scaledMatrix;
+    scaledMatrix[0] = rotationMatrix[0] * scale.x; // Scale x-axis
+    scaledMatrix[1] = rotationMatrix[1] * scale.y; // Scale y-axis
+    scaledMatrix[2] = rotationMatrix[2] * scale.z; // Scale z-axis
+    return scaledMatrix;
+}
+
+
+
+struct VertexData {
+    float x, y, z;
+    float opacity;
+    float scale[3];
+    float rot[4];
+    float f_dc[3];
+};
+
+vector < VertexData > vertices;
+
 
 
 //--------------------------------------------------------------
 void ofApp::setup(){
 	shader.load("vert.glsl", "frag.glsl");
-	//mesh.load("lofi-bunny.ply");
-	glPointSize(4);
-	//ofSetDrawMode(OF_DRAW_POINTS);
-    const std::string& filename = "C:\\Users\\charl\\Documents\\of_v0.12.0_vs_release\\apps\\myApps\\ofSplat\\bin\\data\\point_cloud.ply";
-	 //ddset = dataset::from_ply("C:\\Users\\charl\\Documents\\of_v0.12.0_vs_release\\apps\\myApps\\ofSplat\\bin\\data\\point_cloud.ply");
-	 //ddset.sort();
-	// dataset::Dataset ddset = dataset::from_ply("C:\\Users\\charl\\Downloads\\output\\output\\input.ply");
+    shader.bindDefaults();
+    const std::string& filename = ofToDataPath("point_cloud.ply");
 
-      //tracing::RecorderGuard tracing_guard("load dataset");
-    
      ply::PlyFile ply(filename);
 
      // Create accessors
@@ -29,7 +82,6 @@ void ofApp::setup(){
      const auto rot_qx = ply.accessor<float>("rot_1");
      const auto rot_qy = ply.accessor<float>("rot_2");
      const auto rot_qz = ply.accessor<float>("rot_3");
-
      // Spherical harmonics accessors
      const auto f_dc_0 = ply.accessor<float>("f_dc_0");
      const auto f_dc_1 = ply.accessor<float>("f_dc_1");
@@ -38,100 +90,146 @@ void ofApp::setup(){
      for (size_t i = 0; i < 45; ++i)
          sh.push_back(ply.accessor<float>("f_rest_" + std::to_string(i)));
 
-// declare ofTexture openframeworks with ply.num_vertices() *3 size
-	 ofTexture texdata;
-	 
-	int texwidth = 1024 * 2; // Set to your desired width
-    int texheight = ceil((2 * ply.num_vertices()) / texwidth); // Set to your desired height
-	 texdata.allocate(texwidth * texheight * 4, 1, GL_RGB32F);
+    for (size_t row = 0; row < ply.num_vertices(); ++row) {
+        
+        VertexData temp;
+        temp.x = x(row);
+        temp.y = y(row);
+        temp.z = z(row);
+        temp.opacity = 1.f / (1.f + std::exp(-opacity(row)));
+        temp.scale[0] = scale_0(row);
+        temp.scale[1] = scale_1(row);
+        temp.scale[2] = scale_2(row);
+        temp.rot[0] = rot_qx(row);
+        temp.rot[1] = rot_qy(row);
+        temp.rot[2] = rot_qz(row);
+        temp.rot[3] = rot_qw(row);
+        temp.f_dc[0] = f_dc_0(row);
+        temp.f_dc[1] = f_dc_1(row);
+        temp.f_dc[2] = f_dc_2(row);
+        
+        
+        vertices.push_back(temp);
+
+    }
+    
+
+    
+    size_t vertexCount = vertices.size();
+    
+    
+    // subtract the center
+    ofPoint center;
+    for (int i = 0; i < vertexCount; i++) {
+        center +=ofPoint(vertices[i].x, vertices[i].y, vertices[i].z);
+    }
+    center/= (float)vertexCount;
+    for (int i = 0; i < vertexCount; i++) {
+        vertices[i].x -= center.x;
+        vertices[i].y -= center.y;
+        vertices[i].y*=-1;
+        vertices[i].z -= center.z;
+        
+//        vertices[i].x *= 100.;
+//        vertices[i].y *= 100.;
+//        vertices[i].z *= 100.;
+        
+        
+    }
+
+  
+    
+    
+    vector < float > data;
+    
+    for (size_t i = 0; i < vertexCount; ++i) {
+        
+        
+        
+            const auto& v = vertices[i];
+
+            float SH_C0 = 0.28209479177387814;
+            float r = 0.5 + SH_C0 * v.f_dc[0];
+            float g = 0.5 + SH_C0 * v.f_dc[1];
+            float b = 0.5 + SH_C0 * v.f_dc[2];
+            float a = 1 / (1 + exp(-v.opacity)); // Opacity converted to alpha
+
+            // Convert RGBA to 0-255 range and store
+            uint32_t color = ((uint8_t)(r * 255) << 24) | ((uint8_t)(g * 255) << 16) | ((uint8_t)(b * 255) << 8) | (uint8_t)(a * 255);
+
+            glm::quat quaternion(v.rot[0], v.rot[1], v.rot[2], v.rot[3]);
+               glm::mat3 rotationMatrix = quaternionToMatrix(quaternion);
+
+               // Apply scale to the rotation matrix
+             
+        glm::mat3 scaledRotationMatrix = scaleRotationMatrix(rotationMatrix, glm::vec3(v.scale[0], v.scale[1], v.scale[2]));
+
+        
+               // Compute sigma values from the scaled rotation matrix
+               float sigma[6];
+               sigma[0] = scaledRotationMatrix[0][0] * scaledRotationMatrix[0][0] + scaledRotationMatrix[1][0] * scaledRotationMatrix[1][0] + scaledRotationMatrix[2][0] * scaledRotationMatrix[2][0];
+               sigma[1] = scaledRotationMatrix[0][0] * scaledRotationMatrix[0][1] + scaledRotationMatrix[1][0] * scaledRotationMatrix[1][1] + scaledRotationMatrix[2][0] * scaledRotationMatrix[2][1];
+               sigma[2] = scaledRotationMatrix[0][0] * scaledRotationMatrix[0][2] + scaledRotationMatrix[1][0] * scaledRotationMatrix[1][2] + scaledRotationMatrix[2][0] * scaledRotationMatrix[2][2];
+               sigma[3] = scaledRotationMatrix[0][1] * scaledRotationMatrix[0][1] + scaledRotationMatrix[1][1] * scaledRotationMatrix[1][1] + scaledRotationMatrix[2][1] * scaledRotationMatrix[2][1];
+               sigma[4] = scaledRotationMatrix[0][1] * scaledRotationMatrix[0][2] + scaledRotationMatrix[1][1] * scaledRotationMatrix[1][2] + scaledRotationMatrix[2][1] * scaledRotationMatrix[2][2];
+               sigma[5] = scaledRotationMatrix[0][2] * scaledRotationMatrix[0][2] + scaledRotationMatrix[1][2] * scaledRotationMatrix[1][2] + scaledRotationMatrix[2][2] * scaledRotationMatrix[2][2];
+
+        
+        std::vector<float> customData = {
+            v.x, v.y, v.z, r, g, b, a, sigma[0],
+            sigma[1], sigma[2], sigma[3], sigma[4], sigma[5]};
+        
+        for (int z = 0; z < 6; z++){
+            for (auto & f : customData){
+                data.push_back(f);
+            }
+        }
 
 
-     //SplatBuffer buffer(ply.num_vertices());
-     {
-         //tracing::RecorderGuard tracing_guard("buffer population");
-         for (size_t row = 0; row < ply.num_vertices(); ++row) {
-             //Splat& splat = buffer.at(row);
+    }
 
-             // Mean of each Gaussian
- //            splat.center[0] = x(row);
-   //          splat.center[1] = y(row);
-     //        splat.center[2] = z(row);
-       //      if (row < 10 * 3.) {
-         //        ofLog(OF_LOG_NOTICE, "1x: " + ofToString(splat.center[0]));
-           //      ofLog(OF_LOG_NOTICE, "1y: " + ofToString(splat.center[1]));
-             //    ofLog(OF_LOG_NOTICE, "1z: " + ofToString(splat.center[2]));
-             }
-             // Covariance
-             const ofMatrix4x4 scale(
-                 std::exp(scale_0(row)), 0, 0, 0,
-                 0, std::exp(scale_1(row)), 0, 0,
-                 0, 0, std::exp(scale_2(row)), 0,
-                 0, 0, 0, 1);
-             const ofVec4f quat_coeffs(
-                 rot_qx(row),
-                 rot_qy(row),
-                 rot_qz(row),
-                 rot_qw(row));
-             const ofMatrix4x4 R(
-                 ofQuaternion(quat_coeffs.normalized()));
+    
+    mesh.setMode(OF_PRIMITIVE_TRIANGLES);
+    
+    for (int i = 0; i < vertexCount; i++) {
+        
+        mesh.addVertex(ofPoint(-2, -2));
+        mesh.addVertex(ofPoint(2, -2));
+        mesh.addVertex(ofPoint(2, 2));
+        
+        
+        mesh.addVertex(ofPoint(-2, -2));
+        mesh.addVertex(ofPoint(-2, 2));
+        mesh.addVertex(ofPoint(2, 2));
+       
+        mesh.addColor(ofFloatColor( 1, 0, 1) );
+        mesh.addColor(ofFloatColor( 1, 0, 1) );
+        mesh.addColor(ofFloatColor( 1, 0, 1) );
+        
+        mesh.addColor(ofFloatColor( 1, 0, 1) );
+        mesh.addColor(ofFloatColor( 1, 0, 1) );
+        mesh.addColor(ofFloatColor( 1, 0, 1) );
 
-             //// Compute the matrix product of S and R (M = S * R)
-             const ofMatrix4x4 M = R * scale;
-             splat.covA[0] = M.getRowAsVec3f(0).dot(M.getRowAsVec3f(0));
-             splat.covA[1] = M.getRowAsVec3f(0).dot(M.getRowAsVec3f(1));
-             splat.covA[2] = M.getRowAsVec3f(0).dot(M.getRowAsVec3f(2));
-             splat.covB[0] = M.getRowAsVec3f(1).dot(M.getRowAsVec3f(1));
-             splat.covB[1] = M.getRowAsVec3f(1).dot(M.getRowAsVec3f(2));
-             splat.covB[2] = M.getRowAsVec3f(2).dot(M.getRowAsVec3f(2));
-//TODO MAKE THIS COMPILE
-             float sigma[6] = {
-    M[0] * M[0] + M[3] * M[3] + M[6] * M[6],
-    M[0] * M[1] + M[3] * M[4] + M[6] * M[7],
-    M[0] * M[2] + M[3] * M[5] + M[6] * M[8],
-    M[1] * M[1] + M[4] * M[4] + M[7] * M[7],
-    M[1] * M[2] + M[4] * M[5] + M[7] * M[8],
-    M[2] * M[2] + M[5] * M[5] + M[8] * M[8]
-             };
+    }
+    
+    
+    shader.begin();
+    int customData1Loc = shader.getAttributeLocation("customData1");
+    int customData2Loc = shader.getAttributeLocation("customData2");
+    int customData3Loc = shader.getAttributeLocation("customData3");
+    int customData4Loc = shader.getAttributeLocation("customData4");
 
-             // Pack sigma values into half-precision format and assign to texdata array
-             //uint32_t texdata[8]; // Assuming texdata is an array of appropriate size
-             texdata[8 * i + 4] = floatToHalf(4 * sigma[0]) | (floatToHalf(4 * sigma[1]) << 16);
-             texdata[8 * i + 5] = floatToHalf(4 * sigma[2]) | (floatToHalf(4 * sigma[3]) << 16);
-             texdata[8 * i + 6] = floatToHalf(4 * sigma[4]) | (floatToHalf(4 * sigma[5]) << 16);
+    mesh.getVbo().setAttributeData(customData1Loc, data.data(), 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // First vec4
+    mesh.getVbo().setAttributeData(customData2Loc, data.data() + 4, 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // Second vec4
+    mesh.getVbo().setAttributeData(customData3Loc, data.data() + 8, 3, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // First vec3
+    mesh.getVbo().setAttributeData(customData4Loc, data.data() + 11, 2, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // Remaining vec2 (for the last 2 floats)
 
-             //// Alpha
-             //splat.alpha = 1.f / (1.f + std::exp(-opacity(row)));
-
-             //// Color (spherical harmonics)
-             //splat.sh[0][0] = f_dc_0(row);
-             //splat.sh[0][1] = f_dc_1(row);
-             //splat.sh[0][2] = f_dc_2(row);
-             //for (size_t sh_idx = 1; sh_idx < 15; ++sh_idx) {
-             //    splat.sh[sh_idx][0] = sh.at(sh_idx - 1)(row);
-             //    splat.sh[sh_idx][1] = sh.at(sh_idx + 14)(row);
-             //    splat.sh[sh_idx][2] = sh.at(sh_idx + 29)(row);
-             //}
-
-
-         }
-     
-     }
-
-
-
-
-	 //len = ddset.buffer().size();
-
-	 mesh.setMode(OF_PRIMITIVE_POINTS);
-
-	 // loop through the image in the x and y axes
-	 int skip = 4; // load a subset of the points
-	 for (int i = 0; i < len; i+=skip) {
-		 dataset::Splat s = ddset.buffer()[i];
-		 float scale = 100;
-		 glm::vec3 pos((float)s.center[0] * scale, (float)s.center[1] * scale, (float)s.center[2] * scale);
-		 mesh.addVertex(pos);
-	 }
+    
+     shader.end();
+    
+  
+    
+	
 
 
 }
@@ -139,6 +237,10 @@ void ofApp::setup(){
 //--------------------------------------------------------------
 void ofApp::update(){
 
+    if (ofGetFrameNum() % 60 == 0){
+        shader.load("vert.glsl", "frag.glsl");
+        shader.bindDefaults();
+    }
 }
 
 //--------------------------------------------------------------
@@ -146,35 +248,46 @@ void ofApp::draw(){
 	cam.begin();
 	//use shader program
 
+    ofBackground(0);
+    ofDisableDepthTest();
+    
+    ofEnableAlphaBlending();
+    ofEnableBlendMode(OF_BLENDMODE_ADD);
+    
+    // AGH why doesn't this work ?
+    
+//    glBlendFuncSeparate(
+//        GL_ONE_MINUS_DST_ALPHA,
+//        GL_ONE,
+//        GL_ONE_MINUS_DST_ALPHA,
+//        GL_ONE
+//    );
+//    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+
+    
 	shader.begin();
-	//set 
-	//set mat4 uniform of current view projection matrix
-	shader.setUniformMatrix4f("view", cam.getModelViewProjectionMatrix());
+    shader.setUniformMatrix4f("view", cam.getModelViewMatrix());
+    shader.setUniform2f("viewport", ofGetWidth(), ofGetHeight());
 	shader.setUniformMatrix4f("projection", cam.getProjectionMatrix());
-	shader.setUniform2f("focal", cam.getFov(), ofGetWidth() / ofGetHeight());
+    
+    float fov = cam.getFov();
+    float viewportWidth = ofGetViewportWidth();
+    float viewportHeight = ofGetViewportHeight();
+
+    float focalLengthX = viewportWidth / (2.0f * tan(ofDegToRad(fov) / 2.0f));
+    float focalLengthY = viewportHeight / (2.0f * tan(ofDegToRad(fov) / 2.0f));
+    
+    
+    
+	shader.setUniform2f("focal", focalLengthX ,focalLengthY);
 	shader.setUniform3f("cam_pos", cam.getPosition().x, cam.getPosition().y, cam.getPosition().z);
-	shader.setUniform1i("sh_degree", 3);
-
-
-GLuint ssbo;
-    glGenBuffers(1, &ssbo);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER,
-		ddset.buffer().size(),
-                 ddset.buffer().data(),
-                 GL_STATIC_DRAW);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 2);
-
-
-	//ofPushMatrix();
-	mesh.drawVertices();
+	
+	mesh.draw();
 	shader.end();
-	//ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
-	
-	
-	
-	//ofPopMatrix();
-	cam.end();
+
+    cam.end();
+    
+    ofEnableAlphaBlending();
 
 }
 
