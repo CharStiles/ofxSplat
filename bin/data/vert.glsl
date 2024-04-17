@@ -36,7 +36,7 @@ void main () {
     float sigma4 = customData4.x;
     float sigma5 = customData4.y;
     
-    vec4 cen = vec4(x,y,z,1)*100.;              // weird scale factor
+    vec4 cen = vec4(x,y,z,1)*10.;              // weird scale factor
     vec4 cam = view * vec4(cen.xyz, 1.);
     vec4 pos2d = projection * cam;
     float clip = 1.2 * pos2d.w;
@@ -44,6 +44,11 @@ void main () {
         gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
         return;
     }
+
+    // cen = vec4(x,y,z,1)*100.;              // weird scale factor
+    // cam = view * vec4(cen.xyz, 1.);
+    // pos2d = projection * cam;
+
     vec2 u1 = vec2(sigma0, sigma1);
     vec2 u2 = vec2(sigma2, sigma3);
     vec2 u3 = vec2(sigma4, sigma5);
@@ -65,8 +70,8 @@ void main () {
 
     if(lambda2 < 0.0) return;
     vec2 diagonalVector = normalize(vec2(cov2d[0][1], lambda1 - cov2d[0][0]));
-    vec2 majorAxis = min(sqrt(2.0 * lambda1), 1024.0) * diagonalVector;
-    vec2 minorAxis = min(sqrt(2.0 * lambda2), 1024.0) * vec2(diagonalVector.y, -diagonalVector.x);
+    vec2 majorAxis = min(sqrt(2.0 * lambda1), 2048.0) * diagonalVector;
+    vec2 minorAxis = min(sqrt(2.0 * lambda2), 2048.0) * vec2(diagonalVector.y, -diagonalVector.x);
     
     vec2 vCenter = vec2(pos2d) / pos2d.w;
 

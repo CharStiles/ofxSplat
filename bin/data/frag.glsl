@@ -9,9 +9,9 @@ in vec2 vPosition;
 out vec4 outColor;
 
 void main () {    
-  float A = -dot(vPosition, vPosition);
+  float A = 1.-length(vPosition.xy);
   if (A < -4.0) discard;
   float B = exp(A) * vColor.a;
-    outColor = vec4(B * vColor.rgb, B);
+    outColor = vec4( B*vColor.rgb, B);
 }
 

@@ -66,7 +66,7 @@ vector < VertexData > vertices;
 void ofApp::setup(){
 	shader.load("vert.glsl", "frag.glsl");
     shader.bindDefaults();
-    const std::string& filename = ofToDataPath("point_cloud.ply");
+    const std::string& filename = ofToDataPath("point_cloud_3.ply");
 
      ply::PlyFile ply(filename);
 
@@ -86,6 +86,7 @@ void ofApp::setup(){
      const auto f_dc_0 = ply.accessor<float>("f_dc_0");
      const auto f_dc_1 = ply.accessor<float>("f_dc_1");
      const auto f_dc_2 = ply.accessor<float>("f_dc_2");
+    
      std::vector<ply::PlyAccessor<float>> sh;
      for (size_t i = 0; i < 45; ++i)
          sh.push_back(ply.accessor<float>("f_rest_" + std::to_string(i)));
@@ -230,7 +231,7 @@ void ofApp::setup(){
   
     
 	
-
+    mesh.disableIndices();
 
 }
 
@@ -252,7 +253,7 @@ void ofApp::draw(){
     ofDisableDepthTest();
     
     ofEnableAlphaBlending();
-    ofEnableBlendMode(OF_BLENDMODE_ADD);
+    ofEnableBlendMode(OF_BLENDMODE_ALPHA);
     
     // AGH why doesn't this work ?
     
