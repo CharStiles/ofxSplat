@@ -4,8 +4,33 @@
 #include "ply.h"
 
 class ofApp : public ofBaseApp{
+    
+    public:
+    
+    struct SortResult {
+        void reset(size_t num_vertices) {
+            depth_index.resize(num_vertices);
 
-	public:
+            // Scratch space
+            depths.resize(num_vertices);
+            sizes.resize(num_vertices);
+            counts0.fill(0);
+            starts0.fill(0);
+        }
+
+        size_t num_vertices() const {
+            return depth_index.size();
+        }
+
+        std::vector<uint32_t> depth_index;
+
+        // Scratch space
+        std::vector<float> depths;
+        std::vector<int32_t> sizes;
+        std::array<float, 256 * 256> counts0;
+        std::array<float, 256 * 256> starts0;
+    };
+    
 		void setup();
 		void update();
 		void draw();
@@ -26,8 +51,7 @@ class ofApp : public ofBaseApp{
 		size_t len;
 		ofEasyCam cam;
         ofTexture texture;
-        
-    
+        SortResult sr;
     
     
     

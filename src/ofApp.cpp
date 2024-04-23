@@ -15,6 +15,79 @@ void convertMatrixTo1DArray(const ofMatrix4x4& matrix, float array[16]) {
     }
 }
 
+struct VertexData {
+    float x, y, z;
+    float opacity;
+    float scale[3];
+    float rot[4];
+    float f_dc[3];
+};
+
+
+
+void sort_fast(vector < VertexData > buf, const ofMatrix4x4& P, ofApp::SortResult* out) {
+    // From https://github.com/antimatter15/splat
+    const size_t N = buf.size();
+    if (N==0)
+        return;
+    
+    float a[16];
+    convertMatrixTo1DArray(P,a);
+    
+    float min_d = std::numeric_limits<float>::infinity();
+    float max_d = -std::numeric_limits<float>::infinity();
+
+    {
+        constexpr int DEPTH_SCALE = 4096;
+        for (size_t i = 0; i < N; ++i) {
+            /*           const float depth = DEPTH_SCALE * P.block<1, 3>(2, 0).dot(
+                           ofVec3(buf.at(i).center[0],
+                                           buf.at(i).center[1],
+                                           buf.at(i).center[2]));*/
+
+//            const float depth = (
+//               (P.getRowAsVec3f(2)[1] * buf.at(i).x +
+//                P.getRowAsVec3f(2)[2] * buf.at(i).y +
+//                P.getRowAsVec4f(2)[3] * buf.at(i).z))*
+//                DEPTH_SCALE;
+                const float depth = (
+                   (a[2] * buf.at(i).x +
+                    a[6] * buf.at(i).y +
+                    a[10] * buf.at(i).z))*
+                    DEPTH_SCALE;
+            
+            out->sizes[i] = static_cast<int>(depth);
+            max_d = std::max(depth, max_d);
+            min_d = std::min(depth, min_d);
+        }
+    }
+
+    {
+        //tracing::RecorderGuard tracing_guard("counting sort");
+        const int32_t M = static_cast<int32_t>(out->counts0.size());
+        const float depth_inv = M / (max_d - min_d);
+        for (size_t i = 0; i < N; ++i) {
+            out->sizes[i] =
+                ofClamp(static_cast<int32_t>((out->sizes[i] - min_d) * depth_inv), 0, M - 1);
+            ++(out->counts0[out->sizes[i]]);
+        }
+        for (size_t i = 1; i < static_cast<size_t>(M); ++i)
+            out->starts0[i] = out->starts0[i - 1] + out->counts0[i - 1];
+        for (size_t i = 0; i < N; ++i){
+            int sz = out->starts0[out->sizes[i]]++;
+            if(sz>=0 && sz < N*6.){
+                for(int s = 0; s < 6 ; s++){
+                    out->depth_index[sz+s] = i*6.;//
+                }
+                //ofLog(OF_LOG_NOTICE, "assign");
+                //cout<<"assign";
+            }
+        }
+    }
+}
+
+
+
 // Utility function to convert quaternion to rotation matrix
 glm::mat3 quaternionToMatrix(const glm::quat& q) {
     // Construct a 3x3 rotation matrix from the quaternion
@@ -50,13 +123,6 @@ glm::mat3 scaleRotationMatrix(const glm::mat3& rotationMatrix, const glm::vec3& 
 
 
 
-struct VertexData {
-    float x, y, z;
-    float opacity;
-    float scale[3];
-    float rot[4];
-    float f_dc[3];
-};
 
 vector < VertexData > vertices;
 
@@ -66,7 +132,7 @@ vector < VertexData > vertices;
 void ofApp::setup(){
 	shader.load("vert.glsl", "frag.glsl");
     shader.bindDefaults();
-    const std::string& filename = ofToDataPath("point_cloud_3.ply");
+    const std::string& filename = ofToDataPath("point_cloud.ply");
 
      ply::PlyFile ply(filename);
 
@@ -185,11 +251,8 @@ void ofApp::setup(){
                 data.push_back(f);
             }
         }
-
-
     }
 
-    
     mesh.setMode(OF_PRIMITIVE_TRIANGLES);
     
     for (int i = 0; i < vertexCount; i++) {
@@ -230,9 +293,9 @@ void ofApp::setup(){
     
   
     
-	
-    mesh.disableIndices();
-
+    //enableIndices
+    mesh.enableIndices();
+    sr.reset(vertexCount*6.);
 }
 
 //--------------------------------------------------------------
@@ -242,6 +305,8 @@ void ofApp::update(){
         shader.load("vert.glsl", "frag.glsl");
         shader.bindDefaults();
     }
+    
+
 }
 
 //--------------------------------------------------------------
@@ -265,8 +330,10 @@ void ofApp::draw(){
 //    );
 //    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
 
+       //GL_STREAM_DRAW, GL_STREAM_READ, GL_STREAM_COPY, GL_STATIC_DRAW, GL_STATIC_READ, GL_STATIC_COPY, GL_DYNAMIC_DRAW, GL_DYNAMIC_READ, or GL_DYNAMIC_COPY
     
 	shader.begin();
+    
     shader.setUniformMatrix4f("view", cam.getModelViewMatrix());
     shader.setUniform2f("viewport", ofGetWidth(), ofGetHeight());
 	shader.setUniformMatrix4f("projection", cam.getProjectionMatrix());
@@ -282,7 +349,10 @@ void ofApp::draw(){
     
 	shader.setUniform2f("focal", focalLengthX ,focalLengthY);
 	shader.setUniform3f("cam_pos", cam.getPosition().x, cam.getPosition().y, cam.getPosition().z);
-	
+    
+    sort_fast(vertices,cam.getProjectionMatrix(),&sr);
+    mesh.getVbo().setIndexData(sr.depth_index.data(),vertices.size()*6., GL_STATIC_DRAW);
+
 	mesh.draw();
 	shader.end();
 
