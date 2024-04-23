@@ -77,7 +77,7 @@ void sort_fast(vector < VertexData > buf, const ofMatrix4x4& P, ofApp::SortResul
             int sz = out->starts0[out->sizes[i]]++;
             if(sz>=0 && sz < N*6.){
                 for(int s = 0; s < 6 ; s++){
-                    out->depth_index[sz+s] = i*6.;//
+                    out->depth_index[sz+s] = ofRandom(0,N*6.);//(i*6.) +s;//
                 }
                 //ofLog(OF_LOG_NOTICE, "assign");
                 //cout<<"assign";
@@ -315,7 +315,7 @@ void ofApp::draw(){
 	//use shader program
 
     ofBackground(0);
-    ofDisableDepthTest();
+   // ofDisableDepthTest();
     
     ofEnableAlphaBlending();
     ofEnableBlendMode(OF_BLENDMODE_ALPHA);
@@ -350,16 +350,14 @@ void ofApp::draw(){
 	shader.setUniform2f("focal", focalLengthX ,focalLengthY);
 	shader.setUniform3f("cam_pos", cam.getPosition().x, cam.getPosition().y, cam.getPosition().z);
     
-    sort_fast(vertices,cam.getProjectionMatrix(),&sr);
+    sort_fast(vertices,cam.getModelViewProjectionMatrix(),&sr);
+    
     mesh.getVbo().setIndexData(sr.depth_index.data(),vertices.size()*6., GL_STATIC_DRAW);
 
 	mesh.draw();
 	shader.end();
 
     cam.end();
-    
-    ofEnableAlphaBlending();
-
 }
 
 //--------------------------------------------------------------
