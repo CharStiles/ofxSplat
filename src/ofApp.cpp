@@ -75,9 +75,9 @@ void sort_fast(vector < VertexData > buf, const ofMatrix4x4& P, ofApp::SortResul
             out->starts0[i] = out->starts0[i - 1] + out->counts0[i - 1];
         for (size_t i = 0; i < N; ++i){
             int sz = out->starts0[out->sizes[i]]++;
-            if(sz>=0 && sz < N*6.){
+            if(sz>=0 && sz < N){
                 for(int s = 0; s < 6 ; s++){
-                    out->depth_index[sz+s] = ofRandom(0,N*6.);//(i*6.) +s;//
+                    out->depth_index[(sz*6) +s] = (i*6.) +s;//
                 }
                 //ofLog(OF_LOG_NOTICE, "assign");
                 //cout<<"assign";
@@ -130,7 +130,7 @@ vector < VertexData > vertices;
 
 //--------------------------------------------------------------
 void ofApp::setup(){
-	shader.load("vert.glsl", "frag.glsl");
+    shader.load("vert.glsl", "frag.glsl");
     shader.bindDefaults();
     const std::string& filename = ofToDataPath("point_cloud.ply");
 
@@ -255,6 +255,7 @@ void ofApp::setup(){
 
     mesh.setMode(OF_PRIMITIVE_TRIANGLES);
     
+    vector < unsigned int > indices;
     for (int i = 0; i < vertexCount; i++) {
         
         mesh.addVertex(ofPoint(-2, -2));
@@ -273,8 +274,18 @@ void ofApp::setup(){
         mesh.addColor(ofFloatColor( 1, 0, 1) );
         mesh.addColor(ofFloatColor( 1, 0, 1) );
         mesh.addColor(ofFloatColor( 1, 0, 1) );
+        
+        indices.push_back(i * 6 + 0);
+        indices.push_back(i * 6 + 1);
+        indices.push_back(i * 6 + 2);
+        indices.push_back(i * 6 + 3);
+        indices.push_back(i * 6 + 4);
+        indices.push_back(i * 6 + 5);
+        
 
     }
+    
+    mesh.addIndices(indices);
     
     
     shader.begin();
@@ -287,6 +298,8 @@ void ofApp::setup(){
     mesh.getVbo().setAttributeData(customData2Loc, data.data() + 4, 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // Second vec4
     mesh.getVbo().setAttributeData(customData3Loc, data.data() + 8, 3, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // First vec3
     mesh.getVbo().setAttributeData(customData4Loc, data.data() + 11, 2, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // Remaining vec2 (for the last 2 floats)
+    
+    
 
     
      shader.end();
@@ -311,10 +324,18 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-	cam.begin();
-	//use shader program
+    cam.begin();
+    //use shader program
 
-    ofBackground(0);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear
+      glBlendFuncSeparate(
+        GL_ONE_MINUS_DST_ALPHA,
+        GL_ONE,
+        GL_ONE_MINUS_DST_ALPHA,
+        GL_ONE
+      );
+      glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
    // ofDisableDepthTest();
     
     ofEnableAlphaBlending();
@@ -332,11 +353,18 @@ void ofApp::draw(){
 
        //GL_STREAM_DRAW, GL_STREAM_READ, GL_STREAM_COPY, GL_STATIC_DRAW, GL_STATIC_READ, GL_STATIC_COPY, GL_DYNAMIC_DRAW, GL_DYNAMIC_READ, or GL_DYNAMIC_COPY
     
-	shader.begin();
+    shader.begin();
     
-    shader.setUniformMatrix4f("view", cam.getModelViewMatrix());
+    glm::vec3 cameraPos = glm::vec3(cam.getPosition().x,
+                                     cam.getPosition().y,
+                                     cam.getPosition().z);  // Camera position in world coordinates
+                     auto target = cam.getTarget();
+                     glm::vec3 cameraTarget = target.getPosition(); // Where the camera is looking
+                     glm::vec3 upVector = glm::vec3(0, 1, 0);  // Typically Y is up
+                     glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, upVector);
+    shader.setUniformMatrix4f("view",view);
     shader.setUniform2f("viewport", ofGetWidth(), ofGetHeight());
-	shader.setUniformMatrix4f("projection", cam.getProjectionMatrix());
+    shader.setUniformMatrix4f("projection", cam.getProjectionMatrix());
     
     float fov = cam.getFov();
     float viewportWidth = ofGetViewportWidth();
@@ -347,15 +375,38 @@ void ofApp::draw(){
     
     
     
-	shader.setUniform2f("focal", focalLengthX ,focalLengthY);
-	shader.setUniform3f("cam_pos", cam.getPosition().x, cam.getPosition().y, cam.getPosition().z);
+    shader.setUniform2f("focal", focalLengthX ,focalLengthY);
+    shader.setUniform3f("cam_pos", cam.getPosition().x, cam.getPosition().y, cam.getPosition().z);
     
-    sort_fast(vertices,cam.getModelViewProjectionMatrix(),&sr);
+    sort_fast(vertices,view*cam.getProjectionMatrix() ,&sr);
     
-    mesh.getVbo().setIndexData(sr.depth_index.data(),vertices.size()*6., GL_STATIC_DRAW);
+    //mesh.getVbo().setIndexData(sr.depth_index.data(),vertices.size()*6., GL_STATIC_DRAW);
 
-	mesh.draw();
-	shader.end();
+    //mesh.getVbo().updateIndexData(<#const ofIndexType *indices#>, <#int total#>)
+    mesh.getVbo().updateIndexData(sr.depth_index.data(),vertices.size()*6.);
+
+    //let's randomize the indices
+//
+//    vector <  int > draworder;
+//    for (int i = 0; i < vertices.size(); i++) {
+//        draworder.push_back(i);
+//    }
+//    ofRandomize(draworder);
+//    vector < unsigned int > indices;
+//    for (int i = 0; i < draworder.size(); i++) {
+//        indices.push_back(draworder[i]*6 + 0);
+//        indices.push_back(draworder[i]*6 + 1);
+//        indices.push_back(draworder[i]*6 + 2);
+//        indices.push_back(draworder[i]*6 + 3);
+//        indices.push_back(draworder[i]*6 + 4);
+//        indices.push_back(draworder[i]*6 + 5);
+//
+//        //draworder.push_back(i);
+//    }
+   // mesh.getVbo().updateIndexData(indices.data(), indices.size());
+    
+    mesh.draw();
+    shader.end();
 
     cam.end();
 }
@@ -411,6 +462,6 @@ void ofApp::gotMessage(ofMessage msg){
 }
 
 //--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){ 
+void ofApp::dragEvent(ofDragInfo dragInfo){
 
 }
