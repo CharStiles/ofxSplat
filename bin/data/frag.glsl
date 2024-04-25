@@ -11,7 +11,7 @@ out vec4 outColor;
 void main () {    
   float A = 1.-length(vPosition.xy);
   if (A < -4.0) discard;
-  float B = exp(A) * vColor.a;
+  float B = pow(exp(A) * vColor.a, 1.);
     outColor = vec4( B*vColor.rgb, B);
 }
 

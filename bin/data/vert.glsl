@@ -19,6 +19,7 @@ uniform mat4 projection, view;
 uniform vec2 focal;
 uniform vec2 viewport;
 
+uniform float time;
 
 // vec3 ComputeRadianceFromSH(const vec3 v)
 // {
@@ -117,8 +118,9 @@ void main () {
     float sigma4 = customData4.x;
     float sigma5 = customData4.y;
     
-    vec4 cen = vec4(x,y,z,1)*100.;              // weird scale factor
+    vec4 cen = vec4(x,y,z,0)*500.;              // weird scale factor
     vec4 cam = view * vec4(cen.xyz, 1.);
+    
     vec4 pos2d = projection * cam;
     float clip = 1.2 * pos2d.w;
     if (pos2d.z < -clip || pos2d.x < -clip || pos2d.x > clip || pos2d.y < -clip || pos2d.y > clip) {
@@ -151,25 +153,33 @@ void main () {
 
     if(lambda2 < 0.0) return;
     vec2 diagonalVector = normalize(vec2(cov2d[0][1], lambda1 - cov2d[0][0]));
+    
+    
     vec2 majorAxis = min(sqrt(2.0 * lambda1), 2048.0) * diagonalVector;
     vec2 minorAxis = min(sqrt(2.0 * lambda2), 2048.0) * vec2(diagonalVector.y, -diagonalVector.x);
+    
+//    float angle = 3.14; // Rotate 180 degrees
+//    mat2 rotate180 = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+//    majorAxis = rotate180 * majorAxis;
+//    minorAxis = rotate180 * minorAxis;
+//
     
     vec2 vCenter = vec2(pos2d) / pos2d.w;
 
     vColor = vec4(color, 1.);
     
-    vColor = clamp(pos2d.z/pos2d.w+1.0, 0.0, 1.0) * vec4(r,g,b,a);
+    vColor =clamp(pos2d.z/pos2d.w, 0.0, 1.0) * vec4(r,g,b,a);
     //vec4((cov.w) & 0xffu, (cov.w >> 8) & 0xffu, (cov.w >> 16) & 0xffu, (cov.w >> 24) & 0xffu) / 255.0;
         
     
-    vPosition = position.xy;
+    vPosition = position.xy*4.;
 
     // 0.1 is a scale factor I wasn't sure
     
     gl_Position = vec4(
         vCenter
-        + position.x*0.1 * majorAxis / viewport
-        + position.y*0.1 * minorAxis / viewport, 0.0, 1.0);
+        + position.x*500. * majorAxis / viewport
+        + position.y*500. * minorAxis / viewport, 0.0, 1.0);
     
       
 }

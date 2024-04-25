@@ -15,6 +15,17 @@ void convertMatrixTo1DArray(const ofMatrix4x4& matrix, float array[16]) {
     }
 }
 
+void convertMatrixTo1DArray2(const ofMatrix4x4& matrix, float array[16]) {
+    int index = 0;
+    for (int row = 0; row < 4; ++row) {
+        for (int col = 0; col < 4; ++col) {
+            // Assuming the internal storage is _mat[row][col],
+            // adjust if the actual storage differs
+            array[index++] = matrix._mat[col][row];
+        }
+    }
+}
+
 struct VertexData {
     float x, y, z;
     float opacity;
@@ -25,9 +36,11 @@ struct VertexData {
 
 
 
-void sort_fast(vector < VertexData > buf, const ofMatrix4x4& P, ofApp::SortResult* out) {
+void sort_fast(vector < VertexData > buf,  glm::mat4 & P, ofApp::SortResult* out) {
     // From https://github.com/antimatter15/splat
     const size_t N = buf.size();
+    
+    
     if (N==0)
         return;
     
@@ -50,11 +63,16 @@ void sort_fast(vector < VertexData > buf, const ofMatrix4x4& P, ofApp::SortResul
 //                P.getRowAsVec3f(2)[2] * buf.at(i).y +
 //                P.getRowAsVec4f(2)[3] * buf.at(i).z))*
 //                DEPTH_SCALE;
-                const float depth = (
+                 float depth = (
                    (a[2] * buf.at(i).x +
                     a[6] * buf.at(i).y +
                     a[10] * buf.at(i).z))*
                     DEPTH_SCALE;
+            
+            glm::vec4 transformedPosition = P * glm::vec4(buf.at(i).x,
+                                                                   buf.at(i).y,
+                                                                   buf.at(i).z, 1.0);
+            depth = glm::length(glm::vec3(transformedPosition));
             
             out->sizes[i] = static_cast<int>(depth);
             max_d = std::max(depth, max_d);
@@ -75,9 +93,10 @@ void sort_fast(vector < VertexData > buf, const ofMatrix4x4& P, ofApp::SortResul
             out->starts0[i] = out->starts0[i - 1] + out->counts0[i - 1];
         for (size_t i = 0; i < N; ++i){
             int sz = out->starts0[out->sizes[i]]++;
-            if(sz>=0 && sz < N){
+           // cout << i << " " << sz << " " << endl;
+            if(sz>=0 && sz < N*6.){
                 for(int s = 0; s < 6 ; s++){
-                    out->depth_index[(sz*6) +s] = (i*6.) +s;//
+                    out->depth_index[sz*6+s] = (i*6.) +s;//
                 }
                 //ofLog(OF_LOG_NOTICE, "assign");
                 //cout<<"assign";
@@ -127,13 +146,13 @@ glm::mat3 scaleRotationMatrix(const glm::mat3& rotationMatrix, const glm::vec3& 
 vector < VertexData > vertices;
 
 
-
 //--------------------------------------------------------------
 void ofApp::setup(){
     shader.load("vert.glsl", "frag.glsl");
     shader.bindDefaults();
     const std::string& filename = ofToDataPath("point_cloud.ply");
 
+    
      ply::PlyFile ply(filename);
 
      // Create accessors
@@ -164,13 +183,19 @@ void ofApp::setup(){
         temp.y = y(row);
         temp.z = z(row);
         temp.opacity = 1.f / (1.f + std::exp(-opacity(row)));
-        temp.scale[0] = scale_0(row);
-        temp.scale[1] = scale_1(row);
-        temp.scale[2] = scale_2(row);
-        temp.rot[0] = rot_qx(row);
-        temp.rot[1] = rot_qy(row);
-        temp.rot[2] = rot_qz(row);
-        temp.rot[3] = rot_qw(row);
+        temp.scale[0] = exp(scale_0(row));
+        temp.scale[1] = exp(scale_1(row));
+        temp.scale[2] = exp(scale_2(row));
+        
+        float qlen = sqrt( pow(rot_qx(row), 2) +
+                           pow(rot_qy(row), 2) +
+                           pow(rot_qz(row), 2) +
+                           pow(rot_qw(row), 2));
+        
+        temp.rot[0] = (rot_qx(row)/qlen);
+        temp.rot[1] = (rot_qy(row)/qlen);
+        temp.rot[2] = (rot_qz(row)/qlen);
+        temp.rot[3] = (rot_qw(row)/qlen);
         temp.f_dc[0] = f_dc_0(row);
         temp.f_dc[1] = f_dc_1(row);
         temp.f_dc[2] = f_dc_2(row);
@@ -191,12 +216,16 @@ void ofApp::setup(){
         center +=ofPoint(vertices[i].x, vertices[i].y, vertices[i].z);
     }
     center/= (float)vertexCount;
+    ofMatrix4x4 rot;
+    //rot = ofMatrix4x4::makeRotationMatrix(PI, 0, 1, 0);
     for (int i = 0; i < vertexCount; i++) {
         vertices[i].x -= center.x;
         vertices[i].y -= center.y;
-        vertices[i].y*=-1;
-        vertices[i].z -= center.z;
+       // vertices[i].y*=-1;
+        //vertices[i].x*=-1;
         
+        vertices[i].z -= center.z;
+        //vertices[i].z *= -1;
 //        vertices[i].x *= 100.;
 //        vertices[i].y *= 100.;
 //        vertices[i].z *= 100.;
@@ -223,28 +252,57 @@ void ofApp::setup(){
 
             // Convert RGBA to 0-255 range and store
             uint32_t color = ((uint8_t)(r * 255) << 24) | ((uint8_t)(g * 255) << 16) | ((uint8_t)(b * 255) << 8) | (uint8_t)(a * 255);
-
-            glm::quat quaternion(v.rot[0], v.rot[1], v.rot[2], v.rot[3]);
-               glm::mat3 rotationMatrix = quaternionToMatrix(quaternion);
-
-               // Apply scale to the rotation matrix
-             
-        glm::mat3 scaledRotationMatrix = scaleRotationMatrix(rotationMatrix, glm::vec3(v.scale[0], v.scale[1], v.scale[2]));
+//
+//            glm::quat quaternion(v.rot[0], v.rot[1], v.rot[2], v.rot[3]);
+//               glm::mat3 rotationMatrix = quaternionToMatrix(quaternion);
+//
+//               // Apply scale to the rotation matrix
+//
+//        glm::mat3 scaledRotationMatrix = scaleRotationMatrix(rotationMatrix, glm::vec3(v.scale[0], v.scale[1], v.scale[2]));
+//
+//
+//               // Compute sigma values from the scaled rotation matrix
+//               float sigma[6];
+//               sigma[0] = scaledRotationMatrix[0][0] * scaledRotationMatrix[0][0] + scaledRotationMatrix[1][0] * scaledRotationMatrix[1][0] + scaledRotationMatrix[2][0] * scaledRotationMatrix[2][0];
+//               sigma[1] = scaledRotationMatrix[0][0] * scaledRotationMatrix[0][1] + scaledRotationMatrix[1][0] * scaledRotationMatrix[1][1] + scaledRotationMatrix[2][0] * scaledRotationMatrix[2][1];
+//               sigma[2] = scaledRotationMatrix[0][0] * scaledRotationMatrix[0][2] + scaledRotationMatrix[1][0] * scaledRotationMatrix[1][2] + scaledRotationMatrix[2][0] * scaledRotationMatrix[2][2];
+//               sigma[3] = scaledRotationMatrix[0][1] * scaledRotationMatrix[0][1] + scaledRotationMatrix[1][1] * scaledRotationMatrix[1][1] + scaledRotationMatrix[2][1] * scaledRotationMatrix[2][1];
+//               sigma[4] = scaledRotationMatrix[0][1] * scaledRotationMatrix[0][2] + scaledRotationMatrix[1][1] * scaledRotationMatrix[1][2] + scaledRotationMatrix[2][1] * scaledRotationMatrix[2][2];
+//               sigma[5] = scaledRotationMatrix[0][2] * scaledRotationMatrix[0][2] + scaledRotationMatrix[1][2] * scaledRotationMatrix[1][2] + scaledRotationMatrix[2][2] * scaledRotationMatrix[2][2];
 
         
-               // Compute sigma values from the scaled rotation matrix
-               float sigma[6];
-               sigma[0] = scaledRotationMatrix[0][0] * scaledRotationMatrix[0][0] + scaledRotationMatrix[1][0] * scaledRotationMatrix[1][0] + scaledRotationMatrix[2][0] * scaledRotationMatrix[2][0];
-               sigma[1] = scaledRotationMatrix[0][0] * scaledRotationMatrix[0][1] + scaledRotationMatrix[1][0] * scaledRotationMatrix[1][1] + scaledRotationMatrix[2][0] * scaledRotationMatrix[2][1];
-               sigma[2] = scaledRotationMatrix[0][0] * scaledRotationMatrix[0][2] + scaledRotationMatrix[1][0] * scaledRotationMatrix[1][2] + scaledRotationMatrix[2][0] * scaledRotationMatrix[2][2];
-               sigma[3] = scaledRotationMatrix[0][1] * scaledRotationMatrix[0][1] + scaledRotationMatrix[1][1] * scaledRotationMatrix[1][1] + scaledRotationMatrix[2][1] * scaledRotationMatrix[2][1];
-               sigma[4] = scaledRotationMatrix[0][1] * scaledRotationMatrix[0][2] + scaledRotationMatrix[1][1] * scaledRotationMatrix[1][2] + scaledRotationMatrix[2][1] * scaledRotationMatrix[2][2];
-               sigma[5] = scaledRotationMatrix[0][2] * scaledRotationMatrix[0][2] + scaledRotationMatrix[1][2] * scaledRotationMatrix[1][2] + scaledRotationMatrix[2][2] * scaledRotationMatrix[2][2];
+        std::vector<double> rot = { v.rot[0], v.rot[1], v.rot[2], v.rot[3] };
+        std::vector<double> scale = { v.scale[0], v.scale[1], v.scale[2] };
+        std::vector<double> M(9, 0.0); // 9 elements for a 3x3 matrix
+           M[0] = 1.0 - 2.0 * (rot[2] * rot[2] + rot[3] * rot[3]);
+           M[1] = 2.0 * (rot[1] * rot[2] + rot[0] * rot[3]);
+           M[2] = 2.0 * (rot[1] * rot[3] - rot[0] * rot[2]);
+           M[3] = 2.0 * (rot[1] * rot[2] - rot[0] * rot[3]);
+           M[4] = 1.0 - 2.0 * (rot[1] * rot[1] + rot[3] * rot[3]);
+           M[5] = 2.0 * (rot[2] * rot[3] + rot[0] * rot[1]);
+           M[6] = 2.0 * (rot[1] * rot[3] + rot[0] * rot[2]);
+           M[7] = 2.0 * (rot[2] * rot[3] - rot[0] * rot[1]);
+           M[8] = 1.0 - 2.0 * (rot[1] * rot[1] + rot[2] * rot[2]);
 
+           // Apply scaling
+           for (int i = 0; i < 9; ++i) {
+               M[i] *= scale[i / 3];
+           }
+
+           // Calculate sigma
+           std::vector<float> sigma(6, 0.0);
+           sigma[0] = M[0] * M[0] + M[3] * M[3] + M[6] * M[6];
+           sigma[1] = M[0] * M[1] + M[3] * M[4] + M[6] * M[7];
+           sigma[2] = M[0] * M[2] + M[3] * M[5] + M[6] * M[8];
+           sigma[3] = M[1] * M[1] + M[4] * M[4] + M[7] * M[7];
+           sigma[4] = M[1] * M[2] + M[4] * M[5] + M[7] * M[8];
+           sigma[5] = M[2] * M[2] + M[5] * M[5] + M[8] * M[8];
+
+        
         
         std::vector<float> customData = {
-            v.x, v.y, v.z, r, g, b, a, sigma[0],
-            sigma[1], sigma[2], sigma[3], sigma[4], sigma[5]};
+            v.x, v.y, v.z, r, g, b, a, 4*sigma[0],
+            4*sigma[1], 4*sigma[2], 4*sigma[3], 4*sigma[4], 4*sigma[5]};
         
         for (int z = 0; z < 6; z++){
             for (auto & f : customData){
@@ -325,47 +383,47 @@ void ofApp::update(){
 //--------------------------------------------------------------
 void ofApp::draw(){
     cam.begin();
+    ofRotateX(mouseX);
     //use shader program
-
+    ofDisableDepthTest();
+    //ofBackground(0);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear
-      glBlendFuncSeparate(
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // Clear
+    
+    glBlendFuncSeparate(
         GL_ONE_MINUS_DST_ALPHA,
         GL_ONE,
         GL_ONE_MINUS_DST_ALPHA,
         GL_ONE
-      );
-      glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-   // ofDisableDepthTest();
-    
-    ofEnableAlphaBlending();
-    ofEnableBlendMode(OF_BLENDMODE_ALPHA);
-    
-    // AGH why doesn't this work ?
-    
-//    glBlendFuncSeparate(
-//        GL_ONE_MINUS_DST_ALPHA,
-//        GL_ONE,
-//        GL_ONE_MINUS_DST_ALPHA,
-//        GL_ONE
-//    );
-//    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-
-       //GL_STREAM_DRAW, GL_STREAM_READ, GL_STREAM_COPY, GL_STATIC_DRAW, GL_STATIC_READ, GL_STATIC_COPY, GL_DYNAMIC_DRAW, GL_DYNAMIC_READ, or GL_DYNAMIC_COPY
-    
+    );
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+ 
     shader.begin();
     
+    
+    //cam.resetTransform();
+    
     glm::vec3 cameraPos = glm::vec3(cam.getPosition().x,
-                                     cam.getPosition().y,
-                                     cam.getPosition().z);  // Camera position in world coordinates
-                     auto target = cam.getTarget();
-                     glm::vec3 cameraTarget = target.getPosition(); // Where the camera is looking
-                     glm::vec3 upVector = glm::vec3(0, 1, 0);  // Typically Y is up
-                     glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, upVector);
-    shader.setUniformMatrix4f("view",view);
+                                    cam.getPosition().y,
+                                    cam.getPosition().z);    // Camera position in world coordinates
+    
+    auto target  = cam.getTarget();
+    glm::vec3 cameraTarget = target.getPosition(); // Where the camera is looking
+    glm::vec3 upVector = glm::vec3(0, 1, 0);    // Typically Y is up
+
+    glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, upVector);
+    
+    
+//    if (ofGetMousePressed()){
+//        shader.setUniformMatrix4f("view",cam.getModelViewMatrix());
+//    } else {
+        shader.setUniformMatrix4f("view",cam.getModelViewMatrix());
+    //}
+    
+   //cout << view << " " << cam.getModelViewMatrix() << endl;
     shader.setUniform2f("viewport", ofGetWidth(), ofGetHeight());
     shader.setUniformMatrix4f("projection", cam.getProjectionMatrix());
-    
+    shader.setUniform1f("time", ofGetElapsedTimef());
     float fov = cam.getFov();
     float viewportWidth = ofGetViewportWidth();
     float viewportHeight = ofGetViewportHeight();
@@ -378,32 +436,60 @@ void ofApp::draw(){
     shader.setUniform2f("focal", focalLengthX ,focalLengthY);
     shader.setUniform3f("cam_pos", cam.getPosition().x, cam.getPosition().y, cam.getPosition().z);
     
-    sort_fast(vertices,view*cam.getProjectionMatrix() ,&sr);
+    cam.begin();
     
+    glm::mat4 viewMatrix = (cam.getModelViewMatrix());
+      
+    //sort_fast(vertices,viewMatrix,&sr);
+    
+    typedef struct {
+        ofPoint pt;
+        float distance;
+        int index;
+    } vertex2;
+    vector < vertex2 > vertexsss;
+    for (int i = 0; i < vertices.size(); i++){
+        vertex2 v;
+        v.pt = ofPoint(vertices[i].x,vertices[i].y,vertices[i].z);
+        v.index = i;
+        v.distance = cam.worldToScreen(v.pt).z;
+        vertexsss.push_back(v);
+    }
+    std::sort(vertexsss.begin(), vertexsss.end(), [](const vertex2 &a, const vertex2 &b)
+    {
+        return a.distance < b.distance;
+    });
+    
+    
+    
+    
+    cam.end();
     //mesh.getVbo().setIndexData(sr.depth_index.data(),vertices.size()*6., GL_STATIC_DRAW);
 
-    //mesh.getVbo().updateIndexData(<#const ofIndexType *indices#>, <#int total#>)
-    mesh.getVbo().updateIndexData(sr.depth_index.data(),vertices.size()*6.);
-
+   // mesh.getVbo().updateIndexData(<#const ofIndexType *indices#>, <#int total#>)
+    
     //let's randomize the indices
-//
-//    vector <  int > draworder;
-//    for (int i = 0; i < vertices.size(); i++) {
-//        draworder.push_back(i);
-//    }
-//    ofRandomize(draworder);
-//    vector < unsigned int > indices;
-//    for (int i = 0; i < draworder.size(); i++) {
-//        indices.push_back(draworder[i]*6 + 0);
-//        indices.push_back(draworder[i]*6 + 1);
-//        indices.push_back(draworder[i]*6 + 2);
-//        indices.push_back(draworder[i]*6 + 3);
-//        indices.push_back(draworder[i]*6 + 4);
-//        indices.push_back(draworder[i]*6 + 5);
-//
-//        //draworder.push_back(i);
-//    }
-   // mesh.getVbo().updateIndexData(indices.data(), indices.size());
+    
+    vector <  int > draworder;
+    for (int i = 0; i < vertices.size(); i++) {
+        draworder.push_back(i);
+    }
+    ofRandomize(draworder);
+    vector < unsigned int > indices;
+    for (int i = 0; i < vertexsss.size(); i++) {
+        
+        int index = vertexsss[i].index;
+        indices.push_back(index*6 + 0);
+        indices.push_back(index*6 + 1);
+        indices.push_back(index*6 + 2);
+        indices.push_back(index*6 + 3);
+        indices.push_back(index*6 + 4);
+        indices.push_back(index*6 + 5);
+
+        //draworder.push_back(i);
+    }
+    
+    mesh.getVbo().updateIndexData(indices.data(), indices.size());
     
     mesh.draw();
     shader.end();
