@@ -13,7 +13,18 @@
 // radiance / color stuff passed through
 // with indices now, the number of points could be reduced from 6 to 4 per splat
 
+float IsOutside(float x1, float y1, float z1, float x2, float y2, float z2, float distance)
+{
+    float dx = abs(x2 - x1);
+    float dy = abs(y2-y1);
+    float dz = abs(z2-z1);
 
+    if (dx > distance) return 0; // too far in x direction
+    if (dy > distance*2) return 0; // too far in y direction
+    if (dz > distance) return 0; // too far in z direction
+
+    return 1; // we're within the cube
+}
 
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -48,14 +59,17 @@ void ofApp::setup(){
      std::vector<ply::PlyAccessor<float>> sh;
      for (size_t i = 0; i < 45; ++i)
          sh.push_back(ply.accessor<float>("f_rest_" + std::to_string(i)));
-
+     int vertsRemoved = 0;
     for (size_t row = 0; row < ply.num_vertices(); ++row) {
         
         VertexData temp;
         temp.x = x(row);
         temp.y = y(row);
         temp.z = z(row);
-        
+        if (IsOutside(temp.x, temp.y, temp.z,0,1.3,0, 1) == 0) {
+            vertsRemoved++;
+            continue;
+        }
         if (row == 0){
             cout << temp.x << " " << temp.y << " " << temp.z << endl;
         }
@@ -126,6 +140,9 @@ void ofApp::setup(){
 
     }
     
+    ofLog(OF_LOG_NOTICE, "removing vert "+ ofToString(vertsRemoved));
+    ofLog(OF_LOG_NOTICE, "prevVerst " + ofToString(ply.num_vertices()));
+    ofLog(OF_LOG_NOTICE, "cur verts! " + ofToString(vertices.size()));
     // subtract the center
     ofPoint center;
     for (int i = 0; i < vertices.size(); i++) {
