@@ -6,7 +6,7 @@
 #include <vector>
 #include <string>
 
-
+float camAngle =0;
 
 // todo:
 
@@ -68,7 +68,7 @@ void ofApp::setup(){
         temp.z = z(row);
         if (IsOutside(temp.x, temp.y, temp.z,0,1.3,0, 1) == 0) {
             vertsRemoved++;
-            continue;
+             continue;
         }
         if (row == 0){
             cout << temp.x << " " << temp.y << " " << temp.z << endl;
@@ -211,7 +211,7 @@ void ofApp::setup(){
            sigma[5] = M[2] * M[2] + M[5] * M[5] + M[8] * M[8];
 
         
-        // helpful to debug
+//        // helpful to debug
 //        if (i == 0){
 //            cout << sigma[0] << endl;
 //            cout << sigma[1] << endl;
@@ -220,9 +220,9 @@ void ofApp::setup(){
 //            cout << sigma[4] << endl;
 //            cout << sigma[5] << endl;
 //        }
-        
+//
         std::vector<float> customData = {
-            v.x, v.y, v.z, r, g, b, a, sigma[0],
+            v.x, -v.y, v.z, r, g, b, a, sigma[0],
             sigma[1], sigma[2], sigma[3], sigma[4], sigma[5]};
         
         for (int z = 0; z < 6; z++){
@@ -297,7 +297,21 @@ void ofApp::update(){
         shader.bindDefaults();
     }
     
+    // Increment the camera angle
+       camAngle += 0.01;  // Adjust speed as needed
+       if(camAngle > TWO_PI) {
+           camAngle -= TWO_PI;
+       }
 
+       // Calculate new camera position
+       float camX = 1900 * cos(camAngle);
+       float camZ = 1900 * sin(camAngle);
+    
+       // Update camera position
+      // cam.setPosition(camX, camX*0.2, camZ);
+//       cam.rotate(-90, 1,0,0);
+//       cam.lookAt(glm::vec3(100, 0, 0));  // Look at the center of the mesh
+      
 }
 
 //--------------------------------------------------------------
@@ -306,7 +320,7 @@ void ofApp::draw(){
    
     cam.begin();
     
-    //ofRotateX(mouseX);
+    
 	//use shader program
     ofDisableDepthTest();
     //ofBackground(0);
@@ -338,7 +352,8 @@ void ofApp::draw(){
     
     // I'm not convinced this is right:
 	shader.setUniform2f("focal", focalLengthX, focalLengthY);
-    
+//    shader.setUniform2f("focal", 1159.5880733038064, 1164.6601287484507);
+
     shader.setUniform3f("cam_pos", cam.getPosition());
     
     
@@ -381,8 +396,12 @@ void ofApp::draw(){
     }
     
     mesh.getVbo().updateIndexData(indices.data(), indices.size());
-    
+   // ofPushMatrix();
+    //ofRotateDeg(90, 0, 1, 0);  // Rotate around the Y-axis
+   // ofScale(0,-1,0);
+   // cam.rotateAround( ofGetElapsedTimeMillis(), glm::vec3(1,0,0) );
 	mesh.draw();
+   // ofPopMatrix();
 	shader.end();
 
     cam.end();

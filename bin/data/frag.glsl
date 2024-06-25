@@ -1,7 +1,7 @@
 
 // Adapted from https://github.com/antimatter15/splat
 #version 150
-
+precision highp float;
 in vec4 vColor;
 in vec2 vPosition;
 out vec4 outColor;

@@ -72,7 +72,7 @@ PlyHeader::PlyHeader(const std::string& filename) {
 
     char* const file_begin = reinterpret_cast<char*>(address);
     header_end_idx = [&]() {
-        char z = 0;
+        unsigned long z = 0;
         std::string_view END_HEADER_STR = "end_header\n";
         const auto length = file_size;
         for (char* p = file_begin;
@@ -82,7 +82,7 @@ PlyHeader::PlyHeader(const std::string& filename) {
                 return p - file_begin + END_HEADER_STR.size();
         }
         ofLogFatalError() << "could not parse PLY file";
-        return &z ;
+        return z ;
     }();
 
     ofLog(OF_LOG_NOTICE, "address:: " + ofToString(address));
