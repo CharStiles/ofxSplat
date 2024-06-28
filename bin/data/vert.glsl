@@ -1,8 +1,8 @@
 // Adapted from https://github.com/antimatter15/splat
 #version 150
 
-precision highp float;
-precision highp int;
+//precision highp float;
+//precision highp int;
 
 
 in vec3 position;
@@ -10,7 +10,7 @@ in vec3 color;
 in vec4 customData1;
 in vec4 customData2;
 in vec3 customData3;
-in vec4 customData4;
+in vec2 customData4;
 
 out vec4 vColor;
 out vec2 vPosition;
@@ -107,15 +107,6 @@ void main () {
     float x = customData1.x;
     float y = customData1.y;
     float z = customData1.z;
-    float angle = time;
-    //y = -y;
-    //float s = sin(angle);
-    //float c = cos(angle);
-    //mat2 rot = mat2(c, -s, s, c);
-
-   // vec2 pos = rot * vec2(x, y);
-    // x = pos.x;
-    // y = pos.y;
 
     float r = customData1.a;
     float g = customData2.x;
@@ -128,7 +119,8 @@ void main () {
     float sigma3 = customData3.z;
     float sigma4 = customData4.x;
     float sigma5 = customData4.y;
-    float scaler = 500.;  // a scale factor that helps
+    
+    float scaler = 300.;  // a scale factor that helps
                           // since the points are so small
     
     vec4 cen = vec4(x,y,z,0)*scaler;              // weird scale factor
@@ -168,14 +160,17 @@ void main () {
     
     vec2 vCenter = vec2(pos2d) / pos2d.w;
 
-    vColor =clamp((pos2d.z*1.0)/((pos2d.w*1.0)+scaler), 0.0, 1.0) * vec4(r,g,b,a);
+    vColor = vec4(color, 1.);
+    
+    vColor =clamp(pos2d.z/pos2d.w, 0.0, 1.0) * vec4(r,g,b,a);
  
     vPosition = position.xy;
     
+    // not sure about the 2 here but the splats looked small
     gl_Position = vec4(
         vCenter
-        + position.x*scaler * majorAxis / viewport
-        + position.y*scaler * minorAxis / viewport , 0.0, 1.0);
+        + position.x*scaler*2. * majorAxis / viewport
+        + position.y*scaler*2. * minorAxis / viewport , 0.0, 1.0);
     
 }
 

@@ -34,7 +34,7 @@ void ofApp::setup(){
     
 	shader.load("vert.glsl", "frag.glsl");
     shader.bindDefaults();
-    const std::string& filename = ofToDataPath("point_cloud.ply");
+    const std::string& filename = ofToDataPath("point_cloud_dave_large.ply");
 
     
      ply::PlyFile ply(filename);
@@ -140,9 +140,6 @@ void ofApp::setup(){
 
     }
     
-    ofLog(OF_LOG_NOTICE, "removing vert "+ ofToString(vertsRemoved));
-    ofLog(OF_LOG_NOTICE, "prevVerst " + ofToString(ply.num_vertices()));
-    ofLog(OF_LOG_NOTICE, "cur verts! " + ofToString(vertices.size()));
     // subtract the center
     ofPoint center;
     for (int i = 0; i < vertices.size(); i++) {
@@ -168,7 +165,7 @@ void ofApp::setup(){
             float r = 0.5 + SH_C0 * v.f_dc[0];
             float g = 0.5 + SH_C0 * v.f_dc[1];
             float b = 0.5 + SH_C0 * v.f_dc[2];
-            float a = 1 / (1 + exp(-v.opacity)); // Opacity converted to alpha
+            float a = v.opacity; // Opacity converted to alpha
 
             // Convert RGBA to 0-255 range and store
             uint32_t color = ((uint8_t)(r * 255) << 24) | ((uint8_t)(g * 255) << 16) | ((uint8_t)(b * 255) << 8) | (uint8_t)(a * 255);
@@ -211,7 +208,7 @@ void ofApp::setup(){
            sigma[5] = M[2] * M[2] + M[5] * M[5] + M[8] * M[8];
 
         
-//        // helpful to debug
+        // helpful to debug
 //        if (i == 0){
 //            cout << sigma[0] << endl;
 //            cout << sigma[1] << endl;
@@ -220,9 +217,9 @@ void ofApp::setup(){
 //            cout << sigma[4] << endl;
 //            cout << sigma[5] << endl;
 //        }
-//
+        
         std::vector<float> customData = {
-            v.x, -v.y, v.z, r, g, b, a, sigma[0],
+            v.x, v.y, v.z, r, g, b, a, sigma[0],
             sigma[1], sigma[2], sigma[3], sigma[4], sigma[5]};
         
         for (int z = 0; z < 6; z++){
@@ -360,33 +357,119 @@ void ofApp::draw(){
     // ----------------------------
     // sorting:
     
-    typedef struct {
-        ofPoint pt;
-        float distance;
-        int index;
-    } vertex2;
-    vector < vertex2 > vertsSorted;
-    ofMatrix4x4 projview =  cam.getProjectionMatrix() * cam.getModelViewMatrix();
-    for (int i = 0; i < vertices.size(); i++){
-        vertex2 v;
-        v.pt = ofPoint(vertices[i].x,vertices[i].y,vertices[i].z);
-        v.index = i;
+//    typedef struct {
+//        ofPoint pt;
+//        float distance;
+//        int index;
+//    } vertex2;
+//    vector < vertex2 > vertsSorted;
+//    ofMatrix4x4 projview =  cam.getProjectionMatrix() * cam.getModelViewMatrix();
+//    for (int i = 0; i < vertices.size(); i++){
+//        vertex2 v;
+//        v.pt = ofPoint(vertices[i].x,vertices[i].y,vertices[i].z);
+//        v.index = i;
+//    
+//        // distance calculation from the javascript code:
+//        v.distance =((projview(0, 2) * v.pt.x +
+//                                      projview(1, 2) * v.pt.y +
+//                                      projview(2, 2) * v.pt.z) * 4096);
+//       
+//        vertsSorted.push_back(v);
+//    }
+//    std::sort(vertsSorted.begin(), vertsSorted.end(), [](const vertex2 &a, const vertex2 &b)
+//    {
+//        return a.distance < b.distance;
+//    });
     
-        // distance calculation from the javascript code:
-        v.distance =((projview(0, 2) * v.pt.x +
-                                      projview(1, 2) * v.pt.y +
-                                      projview(2, 2) * v.pt.z) * 4096);
-       
-        vertsSorted.push_back(v);
-    }
-    std::sort(vertsSorted.begin(), vertsSorted.end(), [](const vertex2 &a, const vertex2 &b)
-    {
-        return a.distance < b.distance;
-    });
-    vector < unsigned int > indices;
-    for (int i = 0; i < vertsSorted.size(); i++) {
+    
+    struct vertex2 {
+        ofPoint pt;
+        int index;
+        int32_t depth;
+    };
+
+    vector < vertex2 > vertexsss;
+    ofMatrix4x4 projview =  cam.getProjectionMatrix() * cam.getModelViewMatrix();
+   
+    
+    int32_t maxDepth = std::numeric_limits<int32_t>::min();
+    int32_t minDepth = std::numeric_limits<int32_t>::max();
+
+    for (int i = 0; i < vertices.size(); i++) {
+        vertex2 v;
+        v.pt = ofPoint(vertices[i].x, vertices[i].y, vertices[i].z);
+        v.index = i;
         
-        int index = vertsSorted[i].index;
+//        v.depth = static_cast<int32_t>((
+//            viewProj[2] * v.pt.x +
+//            viewProj[6] * v.pt.y +
+//            viewProj[10] * v.pt.z
+//        ) * 4096);
+        
+        v.depth =((projview(0, 2) * v.pt.x +
+         projview(1, 2) * v.pt.y +
+            projview(2, 2) * v.pt.z) * 4096);
+
+        maxDepth = std::max(maxDepth, v.depth);
+        minDepth = std::min(minDepth, v.depth);
+
+        vertexsss.push_back(v);
+    }
+
+    // Inline lambda for counting sort
+    auto countingSort = [&vertexsss, maxDepth, minDepth]() {
+        int vertexCount = vertexsss.size();
+        double depthRange = static_cast<double>(maxDepth) - minDepth;
+        double depthInv = (depthRange > 0) ? ((256.0 * 256.0 - 1) / depthRange) : 1.0;
+        
+        std::vector<uint32_t> counts0(256 * 256, 0);
+        
+        // First pass: count occurrences
+        for (int i = 0; i < vertexCount; i++) {
+            int32_t normalizedDepth = static_cast<int32_t>((vertexsss[i].depth - minDepth) * depthInv);
+            normalizedDepth = std::max(0, std::min(normalizedDepth, 256 * 256 - 1)); // Clamp value
+            counts0[normalizedDepth]++;
+        }
+
+        std::vector<uint32_t> starts0(256 * 256, 0);
+        uint32_t totalCount = 0;
+        for (int i = 0; i < 256 * 256; i++) {
+            starts0[i] = totalCount;
+            totalCount += counts0[i];
+        }
+
+        std::vector<uint32_t> depthIndex(vertexCount);
+        for (int i = 0; i < vertexCount; i++) {
+            int32_t normalizedDepth = static_cast<int32_t>((vertexsss[i].depth - minDepth) * depthInv);
+            normalizedDepth = std::max(0, std::min(normalizedDepth, 256 * 256 - 1)); // Clamp value
+            
+            if (starts0[normalizedDepth] < vertexCount) {
+                depthIndex[starts0[normalizedDepth]++] = i;
+            } else {
+                std::cout << "Error: starts0[" << normalizedDepth << "] = " << starts0[normalizedDepth]
+                          << " is out of bounds for depthIndex of size " << vertexCount << std::endl;
+                // As a fallback, place this vertex at the end
+                depthIndex[vertexCount - 1] = i;
+            }
+        }
+
+        std::vector<vertex2> sortedVertices(vertexCount);
+        for (int i = 0; i < vertexCount; i++) {
+            sortedVertices[i] = vertexsss[depthIndex[i]];
+        }
+
+        vertexsss = std::move(sortedVertices);
+    };
+
+    // Call the counting sort
+    countingSort();
+
+    
+    
+    vector < unsigned int > indices;
+    for (int i = 0; i < vertexsss.size(); i++) {
+        
+        int index = vertexsss[i].index;
         indices.push_back(index*6 + 0);
         indices.push_back(index*6 + 1);
         indices.push_back(index*6 + 2);
@@ -396,12 +479,8 @@ void ofApp::draw(){
     }
     
     mesh.getVbo().updateIndexData(indices.data(), indices.size());
-   // ofPushMatrix();
-    //ofRotateDeg(90, 0, 1, 0);  // Rotate around the Y-axis
-   // ofScale(0,-1,0);
-   // cam.rotateAround( ofGetElapsedTimeMillis(), glm::vec3(1,0,0) );
+    
 	mesh.draw();
-   // ofPopMatrix();
 	shader.end();
 
     cam.end();
