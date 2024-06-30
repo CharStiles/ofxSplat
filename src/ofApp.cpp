@@ -6,7 +6,6 @@
 #include <vector>
 #include <string>
 
-float camAngle =0;
 
 // todo:
 
@@ -55,6 +54,13 @@ void ofApp::setup(){
      const auto f_dc_0 = ply.accessor<float>("f_dc_0");
      const auto f_dc_1 = ply.accessor<float>("f_dc_1");
      const auto f_dc_2 = ply.accessor<float>("f_dc_2");
+
+//     const auto f_rest_0 = ply.accessor<float>("f_rest_0");
+//     const auto f_rest_1 = ply.accessor<float>("f_rest_1");
+//     const auto f_rest_2 = ply.accessor<float>("f_rest_2");
+//
+//
+
     
      std::vector<ply::PlyAccessor<float>> sh;
      for (size_t i = 0; i < 45; ++i)
@@ -68,7 +74,7 @@ void ofApp::setup(){
         temp.z = z(row);
         if (IsOutside(temp.x, temp.y, temp.z,0,1.3,0, 1) == 0) {
             vertsRemoved++;
-             continue;
+            continue;
         }
         if (row == 0){
             cout << temp.x << " " << temp.y << " " << temp.z << endl;
@@ -135,6 +141,10 @@ void ofApp::setup(){
         temp.f_dc[1] = f_dc_1(row);
         temp.f_dc[2] = f_dc_2(row);
         
+        for (int i = 0; i < 15*3; ++i) {
+            std::string accessor_name = "f_rest_" + std::to_string(i);
+            temp.f_rest[i] = ply.accessor<float>(accessor_name)(row);
+        }
         
         vertices.push_back(temp);
 
@@ -162,9 +172,9 @@ void ofApp::setup(){
             const auto& v = vertices[i];
 
             float SH_C0 = 0.28209479177387814;
-            float r = 0.5 + SH_C0 * v.f_dc[0];
-            float g = 0.5 + SH_C0 * v.f_dc[1];
-            float b = 0.5 + SH_C0 * v.f_dc[2];
+            float r = v.f_dc[0];
+            float g =  v.f_dc[1];
+            float b = v.f_dc[2];
             float a = v.opacity; // Opacity converted to alpha
 
             // Convert RGBA to 0-255 range and store
@@ -220,13 +230,27 @@ void ofApp::setup(){
         
         std::vector<float> customData = {
             v.x, v.y, v.z, r, g, b, a, sigma[0],
-            sigma[1], sigma[2], sigma[3], sigma[4], sigma[5]};
-        
+            sigma[1], sigma[2], sigma[3], sigma[4], sigma[5],
+            v.f_rest[0], v.f_rest[1], v.f_rest[2], v.f_rest[3],
+            v.f_rest[4], v.f_rest[5], v.f_rest[6], v.f_rest[7],
+            v.f_rest[8], v.f_rest[9], v.f_rest[10], v.f_rest[11],
+            v.f_rest[12], v.f_rest[13], v.f_rest[14], v.f_rest[15],
+            v.f_rest[16], v.f_rest[17], v.f_rest[18], v.f_rest[19],
+            v.f_rest[20], v.f_rest[21], v.f_rest[22], v.f_rest[23],
+            v.f_rest[24], v.f_rest[25], v.f_rest[26], v.f_rest[27],
+            v.f_rest[28], v.f_rest[29], v.f_rest[30], v.f_rest[31],
+            v.f_rest[32], v.f_rest[33], v.f_rest[34], v.f_rest[35],
+            v.f_rest[36], v.f_rest[37], v.f_rest[38], v.f_rest[39],
+            v.f_rest[40], v.f_rest[41], v.f_rest[42], v.f_rest[43],
+            v.f_rest[44]
+            };
+        //6 vertices per point
         for (int z = 0; z < 6; z++){
             for (auto & f : customData){
                 data.push_back(f);
             }
         }
+        
     }
 
     mesh.setMode(OF_PRIMITIVE_TRIANGLES);
@@ -274,13 +298,22 @@ void ofApp::setup(){
     int customData2Loc = shader.getAttributeLocation("customData2");
     int customData3Loc = shader.getAttributeLocation("customData3");
     int customData4Loc = shader.getAttributeLocation("customData4");
-
-    mesh.getVbo().setAttributeData(customData1Loc, data.data(), 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // First vec4
-    mesh.getVbo().setAttributeData(customData2Loc, data.data() + 4, 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // Second vec4
-    mesh.getVbo().setAttributeData(customData3Loc, data.data() + 8, 3, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // First vec3
-    mesh.getVbo().setAttributeData(customData4Loc, data.data() + 11, 2, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 13); // Remaining vec2 (for the last 2 floats)
+    // 58 is how large 'data' is
+    mesh.getVbo().setAttributeData(customData1Loc, data.data(), 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 58); // First vec4
+    mesh.getVbo().setAttributeData(customData2Loc, data.data() + 4, 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 58); // Second vec4
+    mesh.getVbo().setAttributeData(customData3Loc, data.data() + 8, 3, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 58); // First vec3
+    mesh.getVbo().setAttributeData(customData4Loc, data.data() + 11, 2, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 58); // Remaining vec2 (for the last 2 floats)
     
-
+    int shLocs[15*3];
+    for (int i = 0; i < 15*3; ++i) {
+        std::string locName = "sh" + std::to_string(i) ;
+        shLocs[i] = shader.getAttributeLocation(locName);
+    }
+    
+    for (int i = 0; i < 15 * 3; ++i) {
+        mesh.getVbo().setAttributeData(shLocs[i], data.data()+13 +i, 1, vertices.size(), GL_STATIC_DRAW, sizeof(float) * 13);
+    }
+    
      shader.end();
     
     mesh.enableIndices();

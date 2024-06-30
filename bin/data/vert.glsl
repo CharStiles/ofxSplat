@@ -12,6 +12,73 @@ in vec4 customData2;
 in vec3 customData3;
 in vec2 customData4;
 
+//0-47 declare sh
+uniform float sh0;
+uniform float sh1;
+uniform float sh2;
+uniform float sh3;
+uniform float sh4;
+uniform float sh5;
+uniform float sh6;
+uniform float sh7;
+uniform float sh8;
+uniform float sh9;
+uniform float sh10;
+uniform float sh11;
+uniform float sh12;
+uniform float sh13;
+uniform float sh14;
+uniform float sh15;
+uniform float sh16;
+uniform float sh17;
+uniform float sh18;
+uniform float sh19;
+uniform float sh20;
+uniform float sh21;
+uniform float sh22;
+uniform float sh23;
+uniform float sh24;
+uniform float sh25;
+uniform float sh26;
+uniform float sh27;
+uniform float sh28;
+uniform float sh29;
+uniform float sh30;
+uniform float sh31;
+uniform float sh32;
+uniform float sh33;
+uniform float sh34;
+uniform float sh35;
+uniform float sh36;
+uniform float sh37;
+uniform float sh38;
+uniform float sh39;
+uniform float sh40;
+uniform float sh41;
+uniform float sh42;
+uniform float sh43;
+uniform float sh44;
+
+vec3 sh[16] = vec3[16](
+    vec3( customData1.a, customData2.x, customData2.y),
+    vec3(sh0, sh1, sh2),
+    vec3(sh3, sh4, sh5),
+    vec3(sh6, sh7, sh8),
+    vec3(sh9, sh10, sh11),
+    vec3(sh12, sh13, sh14),
+    vec3(sh15, sh16, sh17),
+    vec3(sh18, sh19, sh20),
+    vec3(sh21, sh22, sh23),
+    vec3(sh24, sh25, sh26),
+    vec3(sh27, sh28, sh29),
+    vec3(sh30, sh31, sh32),
+    vec3(sh33, sh34, sh35),
+    vec3(sh36, sh37, sh38),
+    vec3(sh39, sh40, sh41),
+    vec3(sh42, sh43, sh44)
+ );
+        
+
 out vec4 vColor;
 out vec2 vPosition;
 
@@ -20,6 +87,67 @@ uniform vec2 focal;
 uniform vec2 viewport;
 
 uniform float time;
+
+const float SH_C0 = 0.28209479177387814;
+const float SH_C1 = 0.4886025119029199;
+const float SH_C2[5] = float[5](
+    1.0925484305920792,
+    -1.0925484305920792,
+    0.31539156525252005,
+    -1.0925484305920792,
+    0.5462742152960396
+);
+const float SH_C3[7] = float[7](
+    -0.5900435899266435,
+    2.890611442640554,
+    -0.4570457994644658,
+    0.3731763325901154,
+    -0.4570457994644658,
+    1.445305721320277,
+    -0.5900435899266435
+);
+
+vec3 compute_color_from_sh(vec3 position, vec3 camPos) {
+    vec3 dir = normalize(position - camPos);
+    vec3 result = (SH_C0 * sh[0]);
+
+    // if deg > 0
+    float x = dir.x;
+    float y = dir.y;
+    float z = dir.z;
+
+    result += SH_C1 * (-y * sh[1] + z * sh[2] - x * sh[3]);
+
+    float xx = x * x;
+    float yy = y * y;
+    float zz = z * z;
+    float xy = x * y;
+    float xz = x * z;
+    float yz = y * z;
+
+    // if (sh_degree > 1) {
+    result +=
+        SH_C2[0] * xy * sh[4] +
+        SH_C2[1] * yz * sh[5] +
+        SH_C2[2] * (2.0 * zz - xx - yy) * sh[6] +
+        SH_C2[3] * xz * sh[7] +
+        SH_C2[4] * (xx - yy) * sh[8];
+    
+    // if (sh_degree > 2) {
+    result +=
+        SH_C3[0] * y * (3.0 * xx - yy) * sh[9] +
+        SH_C3[1] * xy * z * sh[10] +
+        SH_C3[2] * y * (4.0 * zz - xx - yy) * sh[11] +
+        SH_C3[3] * z * (2.0 * zz - 3.0 * xx - 3.0 * yy) * sh[12] +
+        SH_C3[4] * x * (4.0 * zz - xx - yy) * sh[13] +
+        SH_C3[5] * z * (xx - yy) * sh[14] +
+        SH_C3[6] * x * (xx - 3.0 * yy) * sh[15];
+
+    // unconditional
+    result +=  0.5;
+
+    return max(result, vec3(0.0));
+}
 
 // vec3 ComputeRadianceFromSH(const vec3 v)
 // {
@@ -161,9 +289,10 @@ void main () {
     vec2 vCenter = vec2(pos2d) / pos2d.w;
 
     vColor = vec4(color, 1.);
+    vec3 col = compute_color_from_sh(vec3(x,y,z), vec3(cam.x, cam.y, cam.z));
+
+    vColor = clamp(pos2d.z/pos2d.w, 0.0, 1.0)* vec4(col, a);//* vec4(r,g,b, a);
     
-    vColor =clamp(pos2d.z/pos2d.w, 0.0, 1.0) * vec4(r,g,b,a);
- 
     vPosition = position.xy;
     
     // not sure about the 2 here but the splats looked small
