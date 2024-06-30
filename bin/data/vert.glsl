@@ -1,7 +1,7 @@
 // Adapted from https://github.com/antimatter15/splat
 #version 150
 
-//precision highp float;
+precision highp float;
 //precision highp int;
 
 
@@ -10,72 +10,42 @@ in vec3 color;
 in vec4 customData1;
 in vec4 customData2;
 in vec3 customData3;
-in vec2 customData4;
+// in vec2 customData4;
 
 //0-47 declare sh
-uniform float sh0;
-uniform float sh1;
-uniform float sh2;
-uniform float sh3;
-uniform float sh4;
-uniform float sh5;
-uniform float sh6;
-uniform float sh7;
-uniform float sh8;
-uniform float sh9;
-uniform float sh10;
-uniform float sh11;
-uniform float sh12;
-uniform float sh13;
-uniform float sh14;
-uniform float sh15;
-uniform float sh16;
-uniform float sh17;
-uniform float sh18;
-uniform float sh19;
-uniform float sh20;
-uniform float sh21;
-uniform float sh22;
-uniform float sh23;
-uniform float sh24;
-uniform float sh25;
-uniform float sh26;
-uniform float sh27;
-uniform float sh28;
-uniform float sh29;
-uniform float sh30;
-uniform float sh31;
-uniform float sh32;
-uniform float sh33;
-uniform float sh34;
-uniform float sh35;
-uniform float sh36;
-uniform float sh37;
-uniform float sh38;
-uniform float sh39;
-uniform float sh40;
-uniform float sh41;
-uniform float sh42;
-uniform float sh43;
-uniform float sh44;
+in vec4 sh0;
+in vec4 sh1;
+in vec4 sh2;
+in vec4 sh3;
+in vec4 sh4;
+in vec4 sh5;
+in vec4 sh6;
+in vec4 sh7;
+in vec4 sh8;
+in vec4 sh9;
+in vec4 sh10;
+in vec4 sh11;
+vec3 scaler = vec3(1,1,1);
 
 vec3 sh[16] = vec3[16](
     vec3( customData1.a, customData2.x, customData2.y),
-    vec3(sh0, sh1, sh2),
-    vec3(sh3, sh4, sh5),
-    vec3(sh6, sh7, sh8),
-    vec3(sh9, sh10, sh11),
-    vec3(sh12, sh13, sh14),
-    vec3(sh15, sh16, sh17),
-    vec3(sh18, sh19, sh20),
-    vec3(sh21, sh22, sh23),
-    vec3(sh24, sh25, sh26),
-    vec3(sh27, sh28, sh29),
-    vec3(sh30, sh31, sh32),
-    vec3(sh33, sh34, sh35),
-    vec3(sh36, sh37, sh38),
-    vec3(sh39, sh40, sh41),
-    vec3(sh42, sh43, sh44)
+    vec3(sh0.r, sh0.g, sh0.b)* scaler,
+    vec3(sh0.a, sh1.r, sh1.g)* scaler,
+    vec3(sh1.b, sh1.a, sh2.r)* scaler,
+    vec3(sh2.g, sh2.b, sh2.a)* scaler,
+    vec3(sh3.r, sh3.g, sh3.b)* scaler,
+    vec3(sh3.a, sh4.r, sh4.g)* scaler,
+    vec3(sh4.b, sh4.a, sh5.r)* scaler,
+    vec3(sh5.g, sh5.b, sh5.a)* scaler,
+    vec3(sh6.r, sh6.g, sh6.b)* scaler,
+    vec3(sh6.a, sh7.r, sh7.g)* scaler,
+    vec3(sh7.b, sh7.a, sh8.r)* scaler,
+    vec3(sh8.g, sh8.b, sh8.a)* scaler,
+    vec3(sh9.r, sh9.g, sh9.b)* scaler,
+    vec3(sh9.a, sh10.r, sh10.g)* scaler,
+    vec3(sh10.b, sh10.a, sh11.r)* scaler
+    // vec3(sh11.g, sh11.b, sh11.a)* scaler
+    // vec3(sh12.r, sh12.g, sh12.b)* scaler
  );
         
 
@@ -144,6 +114,7 @@ vec3 compute_color_from_sh(vec3 position, vec3 camPos) {
         SH_C3[6] * x * (xx - 3.0 * yy) * sh[15];
 
     // unconditional
+    // result = (SH_C0 * sh[0]);
     result +=  0.5;
 
     return max(result, vec3(0.0));
@@ -245,8 +216,8 @@ void main () {
     float sigma1 = customData3.x;
     float sigma2 = customData3.y;
     float sigma3 = customData3.z;
-    float sigma4 = customData4.x;
-    float sigma5 = customData4.y;
+    float sigma4 = sh11.g;
+    float sigma5 = sh11.b;
     
     float scaler = 300.;  // a scale factor that helps
                           // since the points are so small
@@ -288,10 +259,12 @@ void main () {
     
     vec2 vCenter = vec2(pos2d) / pos2d.w;
 
-    vColor = vec4(color, 1.);
+    //vColor = vec4(color, 1.);
+    // vec3 col = compute_color_from_sh(cen.xyz , vec3(cam.x, cam.y, cam.z));
     vec3 col = compute_color_from_sh(vec3(x,y,z), vec3(cam.x, cam.y, cam.z));
 
-    vColor = clamp(pos2d.z/pos2d.w, 0.0, 1.0)* vec4(col, a);//* vec4(r,g,b, a);
+    // vColor = clamp(pos2d.z/pos2d.w, 0.0, 1.0)* vec4(col, a);//* vec4(r,g,b, a);
+    vColor = vec4(col, a);//* vec4(r,g,b, a);
     
     vPosition = position.xy;
     

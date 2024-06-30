@@ -33,6 +33,8 @@ void ofApp::setup(){
     
 	shader.load("vert.glsl", "frag.glsl");
     shader.bindDefaults();
+//    const std::string& filename = ofToDataPath("Scaniverse 2024-06-29 225824.ply");
+
     const std::string& filename = ofToDataPath("point_cloud_dave_large.ply");
 
     
@@ -63,12 +65,26 @@ void ofApp::setup(){
 
     
      std::vector<ply::PlyAccessor<float>> sh;
-     for (size_t i = 0; i < 45; ++i)
-         sh.push_back(ply.accessor<float>("f_rest_" + std::to_string(i)));
+    for (size_t i = 0; i < 45; ++i){
+        sh.push_back(ply.accessor<float>("f_rest_" + std::to_string(i)));
+    }
      int vertsRemoved = 0;
     for (size_t row = 0; row < ply.num_vertices(); ++row) {
+//        if(row%100000==0){
+//            for (size_t i = 0; i < 45; ++i)
+//                cout << ply.accessor<float>("f_rest_" + std::to_string(i))(row);
+//            cout <<"\n next:";
+//        }
         
         VertexData temp;
+        for (size_t i = 0; i < 45; ++i){
+            temp.f_rest[i] = ply.accessor<float>("f_rest_" + std::to_string(i))(row);
+            if(row%100000 == 0){
+                cout << "next:";
+                cout << temp.f_rest[i];
+            }
+           
+        }
         temp.x = x(row);
         temp.y = y(row);
         temp.z = z(row);
@@ -141,10 +157,15 @@ void ofApp::setup(){
         temp.f_dc[1] = f_dc_1(row);
         temp.f_dc[2] = f_dc_2(row);
         
-        for (int i = 0; i < 15*3; ++i) {
-            std::string accessor_name = "f_rest_" + std::to_string(i);
-            temp.f_rest[i] = ply.accessor<float>(accessor_name)(row);
-        }
+//        for (int i = 0; i < 15*3; ++i) {
+//            std::string accessor_name = "f_rest_" + std::to_string(i);
+//            temp.f_rest[i] = ply.accessor<float>(accessor_name)(row);
+//
+//            if(row%100000==0){
+//                cout << ply.accessor<float>(accessor_name)(row);
+//                cout <<"\n in assign:";
+//            }
+//        }
         
         vertices.push_back(temp);
 
@@ -230,7 +251,7 @@ void ofApp::setup(){
         
         std::vector<float> customData = {
             v.x, v.y, v.z, r, g, b, a, sigma[0],
-            sigma[1], sigma[2], sigma[3], sigma[4], sigma[5],
+            sigma[1], sigma[2], sigma[3],
             v.f_rest[0], v.f_rest[1], v.f_rest[2], v.f_rest[3],
             v.f_rest[4], v.f_rest[5], v.f_rest[6], v.f_rest[7],
             v.f_rest[8], v.f_rest[9], v.f_rest[10], v.f_rest[11],
@@ -242,8 +263,10 @@ void ofApp::setup(){
             v.f_rest[32], v.f_rest[33], v.f_rest[34], v.f_rest[35],
             v.f_rest[36], v.f_rest[37], v.f_rest[38], v.f_rest[39],
             v.f_rest[40], v.f_rest[41], v.f_rest[42], v.f_rest[43],
-            v.f_rest[44]
+            v.f_rest[44], sigma[4], sigma[5],0
             };
+        
+        
         //6 vertices per point
         for (int z = 0; z < 6; z++){
             for (auto & f : customData){
@@ -298,20 +321,21 @@ void ofApp::setup(){
     int customData2Loc = shader.getAttributeLocation("customData2");
     int customData3Loc = shader.getAttributeLocation("customData3");
     int customData4Loc = shader.getAttributeLocation("customData4");
-    // 58 is how large 'data' is
-    mesh.getVbo().setAttributeData(customData1Loc, data.data(), 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 58); // First vec4
-    mesh.getVbo().setAttributeData(customData2Loc, data.data() + 4, 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 58); // Second vec4
-    mesh.getVbo().setAttributeData(customData3Loc, data.data() + 8, 3, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 58); // First vec3
-    mesh.getVbo().setAttributeData(customData4Loc, data.data() + 11, 2, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * 58); // Remaining vec2 (for the last 2 floats)
     
-    int shLocs[15*3];
-    for (int i = 0; i < 15*3; ++i) {
+    int dataSize = 59;
+    mesh.getVbo().setAttributeData(customData1Loc, data.data(), 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * dataSize); // First vec4
+    mesh.getVbo().setAttributeData(customData2Loc, data.data() + 4, 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * dataSize); // Second vec4
+    mesh.getVbo().setAttributeData(customData3Loc, data.data() + 8, 3, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * dataSize); // First vec3
+//    mesh.getVbo().setAttributeData(customData4Loc, data.data() + 11, 2, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * dataSize); // Remaining vec2 (for the last 2 floats)
+//    //12 = 15*3/4 rounded up
+    int shLocs[12];
+    for (int i = 0; i < (12); ++i) {
         std::string locName = "sh" + std::to_string(i) ;
         shLocs[i] = shader.getAttributeLocation(locName);
     }
     
-    for (int i = 0; i < 15 * 3; ++i) {
-        mesh.getVbo().setAttributeData(shLocs[i], data.data()+13 +i, 1, vertices.size(), GL_STATIC_DRAW, sizeof(float) * 13);
+    for (int i = 0; i < 12; ++i) {
+        mesh.getVbo().setAttributeData(shLocs[i], data.data()+11 + (i*4), 4, vertices.size()*6, GL_STATIC_DRAW, sizeof(float) * dataSize );
     }
     
      shader.end();
