@@ -4,6 +4,7 @@ Introduction
 -------------
 This is a [nerf gaussian splat](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) renderer modeled after [antimatter15's webgl](https://github.com/antimatter15/splat) implementation.
 You can create a splat from a video following instructions froma well written writeup from Alex Carlier [here](https://www.reshot.ai/3d-gaussian-splatting). 
+You can read more about the creative process [here](https://www.media.mit.edu/posts/splat/). 
 
 License
 -------
