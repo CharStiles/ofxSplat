@@ -25,5 +25,5 @@ Compatibility
 OF 10 and 11
 
 Thanks
-_______
+------------
 Thanks to Zach Lieberman for writing the meat of the renderer, from the vbo, fixing the shaders, to the sorting and beyond. 
