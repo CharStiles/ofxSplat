@@ -16,9 +16,7 @@ struct VertexData {
 
 
 
-
-
-class ofApp : public ofBaseApp{
+class ofSplat : public ofBaseApp{
     
     public:
     
