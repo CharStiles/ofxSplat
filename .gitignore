@@ -84,4 +84,3 @@ Desktop.ini
 # Android
 .csettings
 ./bin/data/lofi-bunny.ply
-bin/data/point_cloud*

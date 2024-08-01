@@ -84,10 +84,10 @@ PlyHeader::PlyHeader(const std::string& filename) {
         ofLogFatalError() << "could not parse PLY file";
         return z;
     }();
-
-    ofLog(OF_LOG_NOTICE, "address:: " + ofToString(address));
-
-        ofLog(OF_LOG_NOTICE, "end idx: " + ofToString(header_end_idx));
+//
+//    ofLog(OF_LOG_NOTICE, "address:: " + ofToString(address));
+//
+//        ofLog(OF_LOG_NOTICE, "end idx: " + ofToString(header_end_idx));
     if (header_end_idx == std::string::npos) {
         ofLogFatalError("PlyHeader") << "Could not find end of header in the PLY file";
         return;

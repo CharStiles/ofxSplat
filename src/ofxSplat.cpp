@@ -1,4 +1,4 @@
-#include "ofSplat.h"
+#include "ofxSplat.h"
 #include "ply.h"
 #include <cstdint> // For uint32_t and uint16_t
 #include <cstring> // For memcpy
@@ -10,9 +10,9 @@
 // with indices now, the number of points could be reduced from 6 to 4 per splat
 
 //--------------------------------------------------------------
-void ofSplat::setup(string pointCloud){
-   
-	shader.load("vert.glsl", "frag.glsl");
+void ofxSplat::setup(string pointCloud){
+    const static std::string shaderPath("../../../../../addons/ofxSplat/shaders/");
+	shader.load(shaderPath+"vert.glsl", shaderPath+"frag.glsl");
     shader.bindDefaults();
 
     const std::string& filename = ofToDataPath(pointCloud);
@@ -45,19 +45,19 @@ void ofSplat::setup(string pointCloud){
         VertexData temp;
         for (size_t i = 0; i < 45; ++i){
             temp.f_rest[i] = ply.accessor<float>("f_rest_" + std::to_string(i))(row);
-            if(row%100000 == 0){
-                cout << "next:";
-                cout << temp.f_rest[i];
-            }
+//            if(row%100000 == 0){
+//                cout << "next:";
+//                cout << temp.f_rest[i];
+//            }
            
         }
         temp.x = x(row);
         temp.y = y(row);
         temp.z = z(row);
 
-        if (row == 0){
-            cout << temp.x << " " << temp.y << " " << temp.z << endl;
-        }
+//        if (row == 0){
+//            cout << temp.x << " " << temp.y << " " << temp.z << endl;
+//        }
         temp.opacity = 1.f / (1.f + std::exp(-opacity(row)));
         temp.scale[0] = exp(scale_0(row));
         temp.scale[1] = exp(scale_1(row));
@@ -286,32 +286,16 @@ void ofSplat::setup(string pointCloud){
 }
 
 //--------------------------------------------------------------
-void ofSplat::update(){
+void ofxSplat::update(){
 
     if (ofGetFrameNum() % 60 == 0){
         shader.load("vert.glsl", "frag.glsl");
         shader.bindDefaults();
     }
-    
-    // Increment the camera angle
-       camAngle += 0.01;  // Adjust speed as needed
-       if(camAngle > TWO_PI) {
-           camAngle -= TWO_PI;
-       }
-
-       // Calculate new camera position
-       float camX = 1900 * cos(camAngle);
-       float camZ = 1900 * sin(camAngle);
-    
-       // Update camera position
-      // cam.setPosition(camX, camX*0.2, camZ);
-//       cam.rotate(-90, 1,0,0);
-//       cam.lookAt(glm::vec3(100, 0, 0));  // Look at the center of the mesh
-      
 }
 
 //--------------------------------------------------------------
-void ofSplat::draw(){
+void ofxSplat::draw(){
     
    
     cam.begin();
