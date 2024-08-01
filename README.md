@@ -28,3 +28,5 @@ OF 10 and 11
 Credit
 ------------
 Thanks to Zach Lieberman for writing the meat of the renderer, from the vbo, fixing the shaders, to the sorting and beyond. 
+
+Developed at [Future Sketches Group](https://www.media.mit.edu/groups/future-sketches/overview/) at the [MIT Media Lab.](https://www.media.mit.edu/)
