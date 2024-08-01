@@ -19,6 +19,8 @@ Use
 
 First you put your gaussian splat nerf PLY in the data folder, say its called pointcloud.ply then you call  ```splat.setup("pointcloud.ply")``` to prepare the splats
 
+Then in your update loop call ```splat.udate()``` 
+
 Then in your draw loop call ```splat.draw()``` 
 
 Compatibility
