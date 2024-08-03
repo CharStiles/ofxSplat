@@ -3,7 +3,7 @@
 Introduction
 -------------
 This is a [nerf gaussian splat](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) renderer modeled after [antimatter15's webgl](https://github.com/antimatter15/splat) implementation.
-You can create a splat from a video following instructions froma well written writeup from Alex Carlier [here](https://www.reshot.ai/3d-gaussian-splatting). 
+You can create a splat from a video following instructions from a well written writeup from Alex Carlier [here](https://www.reshot.ai/3d-gaussian-splatting). 
 You can read more about the creative process [here](https://www.media.mit.edu/posts/splat/). 
 
 License
@@ -17,7 +17,7 @@ Download this and drop it into `openFrameworks/addons/` folder. Your point cloud
 Use
 ------------
 
-First you put your gaussian splat nerf PLY in the data folder, say its called pointcloud.ply then you call  ```splat.setup("pointcloud.ply")``` to prepare the splats
+First you put your gaussian splat nerf PLY in the data folder, then declare an instance of an ofxSplat, ```ofxSplat splat``` in your header, say your point cloud is called pointcloud.ply then you call  ```splat.setup("pointcloud.ply")``` to prepare the splats
 
 Then in your update loop call ```splat.udate()``` 
 
