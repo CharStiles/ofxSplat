@@ -72,7 +72,7 @@ PlyHeader::PlyHeader(const std::string& filename) {
 
     char* const file_begin = reinterpret_cast<char*>(address);
     header_end_idx = [&]() {
-        unsigned long z = 0;
+        unsigned long long z = 0;
         std::string_view END_HEADER_STR = "end_header\n";
         const auto length = file_size;
         for (char* p = file_begin;
